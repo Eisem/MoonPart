@@ -294,18 +294,43 @@ fn parse_headers(text : String) -> Result[Array[Header], MultipartError] {
 ///|
 fn find_parameter(value : String, parameter : String) -> String? {
   let target = parameter.to_lower()
-  for segment in value.split(";") {
-    let item = segment.trim().to_owned()
-    if item.split_once("=") is Some((key, raw_value)) &&
-      key.trim().to_owned().to_lower() == target {
-      let candidate = raw_value.trim().to_owned()
-      if candidate.length() >= 2 &&
-        candidate.has_prefix("\"") &&
-        candidate.has_suffix("\"") {
-        return Some(unescape_quoted_value(candidate[1:candidate.length() - 1]))
+  let segment = StringBuilder()
+  let mut quoted = false
+  let mut escaped = false
+  for character in value {
+    if escaped {
+      segment.write_char(character)
+      escaped = false
+    } else if quoted && character == '\\' {
+      segment.write_char(character)
+      escaped = true
+    } else if character == '\"' {
+      quoted = !quoted
+      segment.write_char(character)
+    } else if character == ';' && !quoted {
+      match parameter_from_segment(segment.to_string(), target) {
+        Some(result) => return Some(result)
+        None => segment.reset()
       }
-      return Some(candidate)
+    } else {
+      segment.write_char(character)
     }
+  }
+  parameter_from_segment(segment.to_string(), target)
+}
+
+///|
+fn parameter_from_segment(segment : String, target : String) -> String? {
+  let item = segment.trim().to_owned()
+  if item.split_once("=") is Some((key, raw_value)) &&
+    key.trim().to_owned().to_lower() == target {
+    let candidate = raw_value.trim().to_owned()
+    if candidate.length() >= 2 &&
+      candidate.has_prefix("\"") &&
+      candidate.has_suffix("\"") {
+      return Some(unescape_quoted_value(candidate[1:candidate.length() - 1]))
+    }
+    return Some(candidate)
   }
   None
 }

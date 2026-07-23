@@ -127,3 +127,18 @@ test "unescapes quoted disposition parameter values" {
   }
   assert_true(parts[0].filename() == Some("say \"hi\".txt"))
 }
+
+///|
+test "keeps semicolons inside quoted disposition parameters" {
+  let source = "--semicolon\r\n" +
+    "Content-Disposition: form-data; name=\"asset\"; filename=\"report;final.txt\"\r\n" +
+    "\r\n" +
+    "content\r\n" +
+    "--semicolon--\r\n"
+  let parser = Parser::new("semicolon")
+  assert_true(parser.feed(source) is Ok(_))
+  guard parser.finish() is Ok(parts) else {
+    fail("quoted semicolons should parse")
+  }
+  assert_true(parts[0].filename() == Some("report;final.txt"))
+}
