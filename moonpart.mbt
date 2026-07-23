@@ -286,10 +286,32 @@ fn find_parameter(value : String, parameter : String) -> String? {
       if candidate.length() >= 2 &&
         candidate.has_prefix("\"") &&
         candidate.has_suffix("\"") {
-        return Some(candidate[1:candidate.length() - 1].to_owned())
+        return Some(unescape_quoted_value(candidate[1:candidate.length() - 1]))
       }
       return Some(candidate)
     }
   }
   None
+}
+
+///|
+/// Decodes quoted-string escapes used by MIME parameters. A backslash only
+/// escapes the next character; a trailing backslash is retained verbatim.
+fn unescape_quoted_value(value : StringView) -> String {
+  let output = StringBuilder()
+  let mut escaped = false
+  for character in value {
+    if escaped {
+      output.write_char(character)
+      escaped = false
+    } else if character == '\\' {
+      escaped = true
+    } else {
+      output.write_char(character)
+    }
+  }
+  if escaped {
+    output.write_char('\\')
+  }
+  output.to_string()
 }

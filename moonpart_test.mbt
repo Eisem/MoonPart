@@ -108,3 +108,18 @@ test "rejects content types without a valid boundary" {
     is Err(MultipartError::InvalidBoundary),
   )
 }
+
+///|
+test "unescapes quoted disposition parameter values" {
+  let source = "--quoted\r\n" +
+    "Content-Disposition: form-data; name=\"asset\"; filename=\"say \\\"hi\\\".txt\"\r\n" +
+    "\r\n" +
+    "content\r\n" +
+    "--quoted--\r\n"
+  let parser = Parser::new("quoted")
+  assert_true(parser.feed(source) is Ok(_))
+  guard parser.finish() is Ok(parts) else {
+    fail("quoted parameters should parse")
+  }
+  assert_true(parts[0].filename() == Some("say \"hi\".txt"))
+}
