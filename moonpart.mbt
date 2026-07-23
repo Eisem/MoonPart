@@ -23,6 +23,9 @@ pub(all) suberror MultipartError {
   MissingOpeningBoundary
   MissingHeaderTerminator
   InvalidHeader(String)
+  MissingContentDisposition
+  InvalidContentDisposition
+  MissingFieldName
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(Debug)
@@ -116,8 +119,13 @@ pub fn Parser::finish(self : Parser) -> Result[Array[Part], MultipartError] {
 ///|
 /// Returns a header value using ASCII case-insensitive comparison.
 pub fn Part::header(self : Part, name : String) -> String? {
+  find_header(self.headers, name)
+}
+
+///|
+fn find_header(headers : Array[Header], name : String) -> String? {
   let target = name.to_lower()
-  for header in self.headers {
+  for header in headers {
     if header.name.to_lower() == target {
       return Some(header.value)
     }
@@ -199,6 +207,10 @@ fn parse_body(
     let header_text = remaining[:header_offset].to_owned()
     let headers = match parse_headers(header_text) {
       Ok(parsed) => parsed
+      Err(error) => return Err(error)
+    }
+    match validate_form_data_headers(headers) {
+      Ok(_) => ()
       Err(error) => return Err(error)
     }
     let content_start = cursor + header_offset + 4
@@ -289,6 +301,26 @@ fn parse_headers(text : String) -> Result[Array[Header], MultipartError] {
     })
   }
   Ok(headers)
+}
+
+///|
+fn validate_form_data_headers(
+  headers : Array[Header],
+) -> Result[Unit, MultipartError] {
+  guard find_header(headers, "content-disposition") is Some(disposition) else {
+    return Err(MultipartError::MissingContentDisposition)
+  }
+  let media_type = match disposition.split_once(";") {
+    Some((value, _)) => value.trim().to_owned()
+    None => disposition.trim().to_owned()
+  }
+  guard media_type.to_lower() == "form-data" else {
+    return Err(MultipartError::InvalidContentDisposition)
+  }
+  guard find_parameter(disposition, "name") is Some(_) else {
+    return Err(MultipartError::MissingFieldName)
+  }
+  Ok(())
 }
 
 ///|

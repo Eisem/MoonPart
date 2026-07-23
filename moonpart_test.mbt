@@ -142,3 +142,25 @@ test "keeps semicolons inside quoted disposition parameters" {
   }
   assert_true(parts[0].filename() == Some("report;final.txt"))
 }
+
+///|
+test "rejects parts without form-data disposition metadata" {
+  let missing_header = "--strict\r\n" +
+    "Content-Type: text/plain\r\n\r\n" +
+    "content\r\n--strict--\r\n"
+  let missing_name = "--strict\r\n" +
+    "Content-Disposition: form-data\r\n\r\n" +
+    "content\r\n--strict--\r\n"
+  let wrong_disposition = "--strict\r\n" +
+    "Content-Disposition: attachment; name=\"asset\"\r\n\r\n" +
+    "content\r\n--strict--\r\n"
+  let parser = Parser::new("strict")
+  assert_true(parser.feed(missing_header) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::MissingContentDisposition))
+  let parser = Parser::new("strict")
+  assert_true(parser.feed(missing_name) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::MissingFieldName))
+  let parser = Parser::new("strict")
+  assert_true(parser.feed(wrong_disposition) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::InvalidContentDisposition))
+}
