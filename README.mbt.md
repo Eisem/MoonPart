@@ -10,6 +10,10 @@ with chunks at arbitrary boundaries, then call `finish`. Boundary delimiters
 split between chunks are handled correctly. The next milestone is a byte-based
 event parser that can stream file contents without retaining full bodies.
 
+Each decoded `Part` retains headers and exposes `name`, `filename`, `is_file`,
+and `content_type` convenience accessors. Missing part Content-Type values use
+the RFC 7578 `text/plain` default.
+
 ## Example
 
 ```mbt check

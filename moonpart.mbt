@@ -148,6 +148,22 @@ pub fn Part::filename(self : Part) -> String? {
 }
 
 ///|
+/// Returns the part media type. RFC 7578 defaults an omitted Content-Type to
+/// `text/plain` for form fields.
+pub fn Part::content_type(self : Part) -> String {
+  match self.header("content-type") {
+    Some(value) => value
+    None => "text/plain"
+  }
+}
+
+///|
+/// Reports whether this part carries a submitted file name.
+pub fn Part::is_file(self : Part) -> Bool {
+  self.filename() is Some(_)
+}
+
+///|
 /// Encodes parts as a multipart body using the supplied boundary.
 pub fn encode(boundary : String, parts : Array[Part]) -> String {
   let mut output = ""

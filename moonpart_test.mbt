@@ -21,9 +21,13 @@ test "parses fields and file metadata" {
   assert_eq(parts.length(), 2)
   assert_true(parts[0].name() == Some("title"))
   assert_eq(parts[0].body, "MoonBit")
+  assert_eq(parts[0].content_type(), "text/plain")
+  assert_false(parts[0].is_file())
   assert_true(parts[1].name() == Some("asset"))
   assert_true(parts[1].filename() == Some("logo.txt"))
   assert_true(parts[1].header("content-type") == Some("text/plain"))
+  assert_eq(parts[1].content_type(), "text/plain")
+  assert_true(parts[1].is_file())
   assert_eq(parts[1].body, "hello from a file")
 }
 
