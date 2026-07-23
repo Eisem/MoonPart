@@ -26,6 +26,8 @@ pub(all) suberror MultipartError {
   MissingContentDisposition
   InvalidContentDisposition
   MissingFieldName
+  HeaderTooLarge(Int)
+  PartCountExceeded(Int)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(Debug)
@@ -37,6 +39,8 @@ pub(all) suberror MultipartError {
 pub(all) struct Parser {
   boundary : String
   max_body_size : Int
+  max_part_count : Int
+  max_header_size : Int
   mut buffer : String
   mut failed : MultipartError?
 }
@@ -48,7 +52,33 @@ pub fn Parser::new(
   boundary : String,
   max_body_size? : Int = 8_388_608,
 ) -> Parser {
-  Parser::{ boundary, max_body_size, buffer: "", failed: None }
+  Parser::{
+    boundary,
+    max_body_size,
+    max_part_count: 1_024,
+    max_header_size: 16_384,
+    buffer: "",
+    failed: None,
+  }
+}
+
+///|
+/// Creates a parser with explicit resource limits. The parser rejects a body
+/// once any configured bound is exceeded.
+pub fn Parser::with_limits(
+  boundary : String,
+  max_body_size? : Int = 8_388_608,
+  max_part_count? : Int = 1_024,
+  max_header_size? : Int = 16_384,
+) -> Parser {
+  Parser::{
+    boundary,
+    max_body_size,
+    max_part_count,
+    max_header_size,
+    buffer: "",
+    failed: None,
+  }
 }
 
 ///|
@@ -112,7 +142,13 @@ pub fn Parser::feed(
 pub fn Parser::finish(self : Parser) -> Result[Array[Part], MultipartError] {
   match self.failed {
     Some(error) => Err(error)
-    None => parse_body(self.boundary, self.buffer)
+    None =>
+      parse_body(
+        self.boundary,
+        self.buffer,
+        self.max_part_count,
+        self.max_header_size,
+      )
   }
 }
 
@@ -189,6 +225,8 @@ pub fn encode(boundary : String, parts : Array[Part]) -> String {
 fn parse_body(
   boundary : String,
   body : String,
+  max_part_count : Int,
+  max_header_size : Int,
 ) -> Result[Array[Part], MultipartError] {
   guard is_valid_boundary(boundary) else {
     return Err(MultipartError::InvalidBoundary)
@@ -203,6 +241,12 @@ fn parse_body(
     let remaining = body[cursor:].to_owned()
     guard remaining.find("\r\n\r\n") is Some(header_offset) else {
       return Err(MultipartError::MissingHeaderTerminator)
+    }
+    if header_offset > max_header_size {
+      return Err(MultipartError::HeaderTooLarge(max_header_size))
+    }
+    if parts.length() >= max_part_count {
+      return Err(MultipartError::PartCountExceeded(max_part_count))
     }
     let header_text = remaining[:header_offset].to_owned()
     let headers = match parse_headers(header_text) {

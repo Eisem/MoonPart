@@ -164,3 +164,14 @@ test "rejects parts without form-data disposition metadata" {
   assert_true(parser.feed(wrong_disposition) is Ok(_))
   assert_true(parser.finish() is Err(MultipartError::InvalidContentDisposition))
 }
+
+///|
+test "enforces header and part count limits" {
+  let source = sample_body()
+  let parser = Parser::with_limits("MoonPartBoundary", max_header_size=8)
+  assert_true(parser.feed(source) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::HeaderTooLarge(8)))
+  let parser = Parser::with_limits("MoonPartBoundary", max_part_count=1)
+  assert_true(parser.feed(source) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::PartCountExceeded(1)))
+}

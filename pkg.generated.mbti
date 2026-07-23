@@ -21,6 +21,8 @@ pub(all) suberror MultipartError {
   MissingContentDisposition
   InvalidContentDisposition
   MissingFieldName
+  HeaderTooLarge(Int)
+  PartCountExceeded(Int)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(@debug.Debug)
@@ -34,6 +36,8 @@ pub(all) struct Header {
 pub(all) struct Parser {
   boundary : String
   max_body_size : Int
+  max_part_count : Int
+  max_header_size : Int
   mut buffer : String
   mut failed : MultipartError?
 }
@@ -41,6 +45,7 @@ pub fn Parser::feed(Self, String) -> Result[Unit, MultipartError]
 pub fn Parser::finish(Self) -> Result[Array[Part], MultipartError]
 pub fn Parser::from_content_type(String, max_body_size? : Int) -> Result[Self, MultipartError]
 pub fn Parser::new(String, max_body_size? : Int) -> Self
+pub fn Parser::with_limits(String, max_body_size? : Int, max_part_count? : Int, max_header_size? : Int) -> Self
 
 pub(all) struct Part {
   headers : Array[Header]
