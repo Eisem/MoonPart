@@ -188,3 +188,27 @@ test "decodes binary file data without text conversion" {
   assert_true(events[2] is StreamEvent::PartEnd)
   assert_true(events[3] is StreamEvent::Finished)
 }
+
+///|
+test "streams multipart events across arbitrary chunks" {
+  let parser = StreamingParser::new("stream")
+  let chunks = [
+    b"--stream\r\nContent-Dis", b"position: form-data; name=\"file\"; filename=\"a.bin\"\r\n\r\nab",
+    b"cdef\r\n--stream--\r\n",
+  ]
+  let events : Array[StreamEvent] = []
+  for chunk in chunks {
+    guard parser.feed_bytes(chunk) is Ok(next) else {
+      fail("chunk should be accepted")
+    }
+    for event in next {
+      events.push(event)
+    }
+  }
+  assert_true(parser.finish() is Ok(_))
+  assert_eq(events.length(), 4)
+  assert_true(events[0] is StreamEvent::PartBegin(_))
+  assert_true(events[1] is StreamEvent::PartData(b"abcdef"))
+  assert_true(events[2] is StreamEvent::PartEnd)
+  assert_true(events[3] is StreamEvent::Finished)
+}

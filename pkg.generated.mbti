@@ -67,6 +67,24 @@ pub(all) enum StreamEvent {
   Finished
 } derive(@debug.Debug)
 
+pub(all) enum StreamState {
+  AwaitingOpening
+  AwaitingHeaders
+  ReadingBody
+  Done
+} derive(@debug.Debug)
+
+pub(all) struct StreamingParser {
+  boundary : String
+  opening : Bytes
+  marker : Bytes
+  mut pending : Bytes
+  mut state : StreamState
+}
+pub fn StreamingParser::feed_bytes(Self, Bytes) -> Result[Array[StreamEvent], MultipartError]
+pub fn StreamingParser::finish(Self) -> Result[Array[StreamEvent], MultipartError]
+pub fn StreamingParser::new(String) -> Self
+
 // Type aliases
 
 // Traits
