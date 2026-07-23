@@ -62,6 +62,22 @@ test "encoder round trips parts" {
 }
 
 ///|
+test "keeps marker-like content that is not a delimiter" {
+  let source = "--edge\r\n" +
+    "Content-Disposition: form-data; name=\"note\"\r\n" +
+    "\r\n" +
+    "before\r\n--edgenot-a-delimiter\r\nafter\r\n" +
+    "--edge--\r\n"
+  let parser = Parser::new("edge")
+  assert_true(parser.feed(source) is Ok(_))
+  guard parser.finish() is Ok(parts) else {
+    fail("marker-like content should not terminate a part")
+  }
+  assert_eq(parts.length(), 1)
+  assert_eq(parts[0].body, "before\r\n--edgenot-a-delimiter\r\nafter")
+}
+
+///|
 test "rejects body above configured limit" {
   let parser = Parser::new("small", max_body_size=3)
   assert_true(parser.feed("1234") is Err(MultipartError::BodyTooLarge(3)))

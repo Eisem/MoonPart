@@ -153,16 +153,14 @@ fn parse_body(
       Err(error) => return Err(error)
     }
     let content_start = cursor + header_offset + 4
-    let content_remaining = body[content_start:].to_owned()
-    guard content_remaining.find(marker) is Some(marker_offset) else {
+    guard find_delimiter(body, marker, content_start)
+      is Some((content_end, after_marker)) else {
       return Err(MultipartError::MissingClosingBoundary)
     }
-    let content_end = content_start + marker_offset
     parts.push(Part::{
       headers,
       body: body[content_start:content_end].to_owned(),
     })
-    let after_marker = content_end + marker.length()
     let suffix = body[after_marker:].to_owned()
     if suffix.has_prefix("--") {
       let tail = suffix[2:].to_owned()
@@ -175,6 +173,24 @@ fn parse_body(
       continue after_marker + 2
     }
     return Err(MultipartError::UnexpectedBoundary)
+  }
+}
+
+///|
+/// Finds the next syntactically valid delimiter. A body may legally contain a
+/// marker-like byte sequence when it is not followed by CRLF or `--`, so that
+/// sequence must remain part of the part body.
+fn find_delimiter(body : String, marker : String, start : Int) -> (Int, Int)? {
+  for scan = start {
+    let remaining = body[scan:].to_owned()
+    guard remaining.find(marker) is Some(offset) else { return None }
+    let delimiter_start = scan + offset
+    let after_marker = delimiter_start + marker.length()
+    let suffix = body[after_marker:].to_owned()
+    if suffix.has_prefix("--") || suffix.has_prefix("\r\n") {
+      return Some((delimiter_start, after_marker))
+    }
+    continue after_marker
   }
 }
 
