@@ -83,3 +83,28 @@ test "rejects body above configured limit" {
   assert_true(parser.feed("1234") is Err(MultipartError::BodyTooLarge(3)))
   assert_true(parser.finish() is Err(MultipartError::BodyTooLarge(3)))
 }
+
+///|
+test "extracts a quoted boundary from content type" {
+  assert_true(
+    boundary_from_content_type(
+      "Multipart/Form-Data; charset=utf-8; boundary=\"part-42\"",
+    )
+    is Ok("part-42"),
+  )
+  assert_true(
+    Parser::from_content_type("multipart/form-data; boundary=edge") is Ok(_),
+  )
+}
+
+///|
+test "rejects content types without a valid boundary" {
+  assert_true(
+    boundary_from_content_type("application/json")
+    is Err(MultipartError::InvalidContentType),
+  )
+  assert_true(
+    boundary_from_content_type("multipart/form-data; boundary=bad\r\nvalue")
+    is Err(MultipartError::InvalidBoundary),
+  )
+}

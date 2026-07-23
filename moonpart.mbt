@@ -18,6 +18,7 @@ pub(all) struct Part {
 /// Errors reported when a multipart body is malformed or exceeds its limit.
 pub(all) suberror MultipartError {
   InvalidBoundary
+  InvalidContentType
   BodyTooLarge(Int)
   MissingOpeningBoundary
   MissingHeaderTerminator
@@ -45,6 +46,40 @@ pub fn Parser::new(
   max_body_size? : Int = 8_388_608,
 ) -> Parser {
   Parser::{ boundary, max_body_size, buffer: "", failed: None }
+}
+
+///|
+/// Creates a parser directly from an HTTP Content-Type value.
+pub fn Parser::from_content_type(
+  content_type : String,
+  max_body_size? : Int = 8_388_608,
+) -> Result[Parser, MultipartError] {
+  match boundary_from_content_type(content_type) {
+    Ok(boundary) => Ok(Parser::new(boundary, max_body_size~))
+    Err(error) => Err(error)
+  }
+}
+
+///|
+/// Extracts and validates the boundary parameter from a multipart/form-data
+/// Content-Type header. Quoted boundary values are accepted.
+pub fn boundary_from_content_type(
+  content_type : String,
+) -> Result[String, MultipartError] {
+  guard content_type.split_once(";") is Some((media_type, parameters)) else {
+    return Err(MultipartError::InvalidContentType)
+  }
+  guard media_type.trim().to_owned().to_lower() == "multipart/form-data" else {
+    return Err(MultipartError::InvalidContentType)
+  }
+  let parameter_text = parameters.to_owned()
+  guard find_parameter(parameter_text, "boundary") is Some(boundary) else {
+    return Err(MultipartError::InvalidContentType)
+  }
+  guard is_valid_boundary(boundary) else {
+    return Err(MultipartError::InvalidBoundary)
+  }
+  Ok(boundary)
 }
 
 ///|
@@ -131,9 +166,7 @@ fn parse_body(
   boundary : String,
   body : String,
 ) -> Result[Array[Part], MultipartError] {
-  guard boundary.length() > 0 &&
-    !boundary.contains("\r") &&
-    !boundary.contains("\n") else {
+  guard is_valid_boundary(boundary) else {
     return Err(MultipartError::InvalidBoundary)
   }
   let opening = "--" + boundary + "\r\n"
@@ -174,6 +207,34 @@ fn parse_body(
     }
     return Err(MultipartError::UnexpectedBoundary)
   }
+}
+
+///|
+fn is_valid_boundary(boundary : String) -> Bool {
+  guard boundary.length() > 0 && boundary.length() <= 70 else { return false }
+  guard !boundary.has_suffix(" ") else { return false }
+  for character in boundary {
+    let allowed = character.is_ascii_digit() ||
+      character.is_ascii_lowercase() ||
+      character.is_ascii_uppercase() ||
+      character == '\'' ||
+      character == '(' ||
+      character == ')' ||
+      character == '+' ||
+      character == '_' ||
+      character == ',' ||
+      character == '-' ||
+      character == '.' ||
+      character == '/' ||
+      character == ':' ||
+      character == '=' ||
+      character == '?' ||
+      character == ' '
+    if !allowed {
+      return false
+    }
+  }
+  true
 }
 
 ///|

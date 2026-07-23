@@ -6,11 +6,14 @@ import {
 }
 
 // Values
+pub fn boundary_from_content_type(String) -> Result[String, MultipartError]
+
 pub fn encode(String, Array[Part]) -> String
 
 // Errors
 pub(all) suberror MultipartError {
   InvalidBoundary
+  InvalidContentType
   BodyTooLarge(Int)
   MissingOpeningBoundary
   MissingHeaderTerminator
@@ -33,6 +36,7 @@ pub(all) struct Parser {
 }
 pub fn Parser::feed(Self, String) -> Result[Unit, MultipartError]
 pub fn Parser::finish(Self) -> Result[Array[Part], MultipartError]
+pub fn Parser::from_content_type(String, max_body_size? : Int) -> Result[Self, MultipartError]
 pub fn Parser::new(String, max_body_size? : Int) -> Self
 
 pub(all) struct Part {
