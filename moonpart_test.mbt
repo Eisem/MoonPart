@@ -175,3 +175,16 @@ test "enforces header and part count limits" {
   assert_true(parser.feed(source) is Ok(_))
   assert_true(parser.finish() is Err(MultipartError::PartCountExceeded(1)))
 }
+
+///|
+test "decodes binary file data without text conversion" {
+  let source = b"--binary\r\nContent-Disposition: form-data; name=\"file\"; filename=\"raw.bin\"\r\n\r\n\x00\xff\x10\r\n--binary--\r\n"
+  guard decode_bytes("binary", source) is Ok(events) else {
+    fail("binary multipart body should parse")
+  }
+  assert_eq(events.length(), 4)
+  assert_true(events[0] is StreamEvent::PartBegin(_))
+  assert_true(events[1] is StreamEvent::PartData(b"\x00\xff\x10"))
+  assert_true(events[2] is StreamEvent::PartEnd)
+  assert_true(events[3] is StreamEvent::Finished)
+}

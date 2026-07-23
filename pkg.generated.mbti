@@ -8,6 +8,8 @@ import {
 // Values
 pub fn boundary_from_content_type(String) -> Result[String, MultipartError]
 
+pub fn decode_bytes(String, Bytes) -> Result[Array[StreamEvent], MultipartError]
+
 pub fn encode(String, Array[Part]) -> String
 
 // Errors
@@ -57,6 +59,13 @@ pub fn Part::filename(Self) -> String?
 pub fn Part::header(Self, String) -> String?
 pub fn Part::is_file(Self) -> Bool
 pub fn Part::name(Self) -> String?
+
+pub(all) enum StreamEvent {
+  PartBegin(Array[Header])
+  PartData(Bytes)
+  PartEnd
+  Finished
+} derive(@debug.Debug)
 
 // Type aliases
 
