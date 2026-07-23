@@ -212,3 +212,28 @@ test "streams multipart events across arbitrary chunks" {
   assert_true(events[2] is StreamEvent::PartEnd)
   assert_true(events[3] is StreamEvent::Finished)
 }
+
+///|
+test "streaming parser preserves binary data at every split point" {
+  let source = b"--split\r\nContent-Disposition: form-data; name=\"file\"; filename=\"raw.bin\"\r\n\r\n\x00\xff\x10payload\r\n--split--\r\n"
+  let expected = b"\x00\xff\x10payload"
+  for split in 1..<source.length() {
+    let parser = StreamingParser::new("split")
+    let received = @buffer.Buffer()
+    let events = [
+      parser.feed_bytes(source.view(end=split).to_owned()),
+      parser.feed_bytes(source.view(start=split).to_owned()),
+    ]
+    for result in events {
+      guard result is Ok(next) else { fail("split \{split} should parse") }
+      for event in next {
+        match event {
+          StreamEvent::PartData(data) => received.write_bytes(data[:])
+          _ => ()
+        }
+      }
+    }
+    assert_true(parser.finish() is Ok(_))
+    assert_true(received.to_bytes() == expected)
+  }
+}
