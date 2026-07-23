@@ -1,0 +1,7 @@
+import {
+  "eisem/moonpart" @lib,
+}
+
+options(
+  "is-main": true,
+)

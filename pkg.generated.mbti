@@ -1,0 +1,50 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "eisem/moonpart"
+
+import {
+  "moonbitlang/core/debug",
+}
+
+// Values
+pub fn encode(String, Array[Part]) -> String
+
+// Errors
+pub(all) suberror MultipartError {
+  InvalidBoundary
+  BodyTooLarge(Int)
+  MissingOpeningBoundary
+  MissingHeaderTerminator
+  InvalidHeader(String)
+  MissingClosingBoundary
+  UnexpectedBoundary
+} derive(@debug.Debug)
+
+// Types and methods
+pub(all) struct Header {
+  name : String
+  value : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct Parser {
+  boundary : String
+  max_body_size : Int
+  mut buffer : String
+  mut failed : MultipartError?
+}
+pub fn Parser::feed(Self, String) -> Result[Unit, MultipartError]
+pub fn Parser::finish(Self) -> Result[Array[Part], MultipartError]
+pub fn Parser::new(String, max_body_size? : Int) -> Self
+
+pub(all) struct Part {
+  headers : Array[Header]
+  body : String
+} derive(Eq, @debug.Debug)
+pub fn Part::disposition_parameter(Self, String) -> String?
+pub fn Part::filename(Self) -> String?
+pub fn Part::header(Self, String) -> String?
+pub fn Part::name(Self) -> String?
+
+// Type aliases
+
+// Traits
+
