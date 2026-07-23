@@ -33,7 +33,9 @@ pub(all) struct FormData {
 pub(all) struct FormDataCollector {
   entries : Array[FormEntry]
   buffer : @buffer.Buffer
+  max_file_size : Int
   mut current_headers : Array[Header]?
+  mut current_size : Int
   mut finished : Bool
 }
 
@@ -42,7 +44,24 @@ pub fn FormDataCollector::new() -> FormDataCollector {
   FormDataCollector::{
     entries: [],
     buffer: @buffer.Buffer(),
+    max_file_size: 8_388_608,
     current_headers: None,
+    current_size: 0,
+    finished: false,
+  }
+}
+
+///|
+/// Creates an in-memory collector with a maximum size for one part body.
+pub fn FormDataCollector::with_file_size_limit(
+  max_file_size : Int,
+) -> FormDataCollector {
+  FormDataCollector::{
+    entries: [],
+    buffer: @buffer.Buffer(),
+    max_file_size,
+    current_headers: None,
+    current_size: 0,
     finished: false,
   }
 }
@@ -62,6 +81,7 @@ pub fn FormDataCollector::push(
         return Err(MultipartError::InvalidStreamEvent)
       }
       self.buffer.reset()
+      self.current_size = 0
       self.current_headers = Some(headers)
       Ok(())
     }
@@ -69,7 +89,12 @@ pub fn FormDataCollector::push(
       guard self.current_headers is Some(_) else {
         return Err(MultipartError::InvalidStreamEvent)
       }
+      let next_size = self.current_size + data.length()
+      if next_size > self.max_file_size {
+        return Err(MultipartError::FileTooLarge(self.max_file_size))
+      }
       self.buffer.write_bytes(data[:])
+      self.current_size = next_size
       Ok(())
     }
     PartEnd => {

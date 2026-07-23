@@ -283,3 +283,16 @@ test "collects ordered text and file form entries from streaming events" {
     _ => fail("third entry should be a file")
   }
 }
+
+///|
+test "collector rejects a part that exceeds its memory limit" {
+  let collector = FormDataCollector::with_file_size_limit(2)
+  let headers = [
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"file\"" },
+  ]
+  assert_true(collector.push(StreamEvent::PartBegin(headers)) is Ok(_))
+  assert_true(
+    collector.push(StreamEvent::PartData(b"123"))
+    is Err(MultipartError::FileTooLarge(2)),
+  )
+}

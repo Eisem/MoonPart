@@ -29,6 +29,7 @@ pub(all) suberror MultipartError {
   HeaderTooLarge(Int)
   PartCountExceeded(Int)
   InvalidStreamEvent
+  FileTooLarge(Int)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(Debug)
