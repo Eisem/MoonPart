@@ -2,6 +2,7 @@
 package "eisem/moonpart"
 
 import {
+  "moonbitlang/core/buffer",
   "moonbitlang/core/debug",
 }
 
@@ -25,11 +26,31 @@ pub(all) suberror MultipartError {
   MissingFieldName
   HeaderTooLarge(Int)
   PartCountExceeded(Int)
+  InvalidStreamEvent
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(@debug.Debug)
 
 // Types and methods
+pub(all) struct FormData {
+  entries : Array[FormEntry]
+} derive(@debug.Debug)
+
+pub(all) struct FormDataCollector {
+  entries : Array[FormEntry]
+  buffer : @buffer.Buffer
+  mut current_headers : Array[Header]?
+  mut finished : Bool
+}
+pub fn FormDataCollector::finish(Self) -> Result[FormData, MultipartError]
+pub fn FormDataCollector::new() -> Self
+pub fn FormDataCollector::push(Self, StreamEvent) -> Result[Unit, MultipartError]
+
+pub(all) enum FormEntry {
+  Text(TextField)
+  File(UploadedFile)
+} derive(@debug.Debug)
+
 pub(all) struct Header {
   name : String
   value : String
@@ -84,6 +105,18 @@ pub(all) struct StreamingParser {
 pub fn StreamingParser::feed_bytes(Self, Bytes) -> Result[Array[StreamEvent], MultipartError]
 pub fn StreamingParser::finish(Self) -> Result[Array[StreamEvent], MultipartError]
 pub fn StreamingParser::new(String) -> Self
+
+pub(all) struct TextField {
+  name : String
+  value : String
+} derive(Eq, @debug.Debug)
+
+pub(all) struct UploadedFile {
+  field_name : String
+  filename : String
+  content_type : String
+  data : Bytes
+} derive(@debug.Debug)
 
 // Type aliases
 

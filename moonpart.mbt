@@ -28,6 +28,7 @@ pub(all) suberror MultipartError {
   MissingFieldName
   HeaderTooLarge(Int)
   PartCountExceeded(Int)
+  InvalidStreamEvent
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(Debug)

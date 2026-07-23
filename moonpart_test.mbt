@@ -237,3 +237,49 @@ test "streaming parser preserves binary data at every split point" {
     assert_true(received.to_bytes() == expected)
   }
 }
+
+///|
+test "collects ordered text and file form entries from streaming events" {
+  let text_prefix = "--collect\r\n" +
+    "Content-Disposition: form-data; name=\"tag\"\r\n\r\n" +
+    "first\r\n" +
+    "--collect\r\n" +
+    "Content-Disposition: form-data; name=\"tag\"\r\n\r\n" +
+    "second\r\n" +
+    "--collect\r\n" +
+    "Content-Disposition: form-data; name=\"asset\"; filename=\"raw.bin\"\r\n" +
+    "Content-Type: application/octet-stream\r\n\r\n"
+  let source = @buffer.Buffer()
+  source.write_utf8(text_prefix)
+  source.write_bytes(b"\x00\xff")
+  source.write_utf8("\r\n--collect--\r\n")
+  let parser = StreamingParser::new("collect")
+  guard parser.feed_bytes(source.to_bytes()) is Ok(events) else {
+    fail("stream should parse")
+  }
+  let collector = FormDataCollector::new()
+  for event in events {
+    assert_true(collector.push(event) is Ok(_))
+  }
+  guard collector.finish() is Ok(form) else { fail("collector should finish") }
+  assert_eq(form.entries.length(), 3)
+  match form.entries[0] {
+    FormEntry::Text(field) => {
+      assert_eq(field.name, "tag")
+      assert_eq(field.value, "first")
+    }
+    _ => fail("first entry should be text")
+  }
+  match form.entries[1] {
+    FormEntry::Text(field) => assert_eq(field.value, "second")
+    _ => fail("second entry should be text")
+  }
+  match form.entries[2] {
+    FormEntry::File(file) => {
+      assert_eq(file.field_name, "asset")
+      assert_eq(file.filename, "raw.bin")
+      assert_true(file.data == b"\x00\xff")
+    }
+    _ => fail("third entry should be a file")
+  }
+}
