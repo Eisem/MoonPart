@@ -69,6 +69,19 @@ pub fn StreamingParser::with_limits(
 }
 
 ///|
+/// Creates an incremental decoder from a multipart/form-data Content-Type
+/// value, including a quoted boundary parameter.
+pub fn StreamingParser::from_content_type(
+  content_type : String,
+  limits? : StreamLimits = StreamLimits::default(),
+) -> Result[StreamingParser, MultipartError] {
+  match boundary_from_content_type(content_type) {
+    Ok(boundary) => Ok(StreamingParser::with_limits(boundary, limits))
+    Err(error) => Err(error)
+  }
+}
+
+///|
 /// Feeds one arbitrary body chunk and returns events now known to be complete.
 pub fn StreamingParser::feed_bytes(
   self : StreamingParser,
@@ -82,6 +95,14 @@ pub fn StreamingParser::feed_bytes(
     return Err(MultipartError::BodyTooLarge(self.limits.max_body_size))
   }
   self.received_size = next_size
+  if self.state is Done {
+    let trailing = concat_bytes(self.pending, chunk)
+    if trailing == b"" || trailing == b"\r" || trailing == b"\r\n" {
+      self.pending = trailing
+      return Ok([])
+    }
+    return Err(MultipartError::UnexpectedBoundary)
+  }
   self.pending = concat_bytes(self.pending, chunk)
   self.drain([])
 }

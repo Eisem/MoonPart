@@ -121,6 +121,7 @@ pub(all) struct StreamingParser {
 }
 pub fn StreamingParser::feed_bytes(Self, Bytes) -> Result[Array[StreamEvent], MultipartError]
 pub fn StreamingParser::finish(Self) -> Result[Array[StreamEvent], MultipartError]
+pub fn StreamingParser::from_content_type(String, limits? : StreamLimits) -> Result[Self, MultipartError]
 pub fn StreamingParser::new(String) -> Self
 pub fn StreamingParser::with_limits(String, StreamLimits) -> Self
 

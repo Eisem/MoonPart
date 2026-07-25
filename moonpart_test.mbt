@@ -288,6 +288,28 @@ test "streaming parser enforces body, header, count, and part limits" {
 }
 
 ///|
+test "streaming parser accepts content types and rejects trailing data" {
+  guard StreamingParser::from_content_type("multipart/form-data; boundary=tail")
+    is Ok(parser) else {
+    fail("content type should create a streaming parser")
+  }
+  assert_true(
+    parser.feed_bytes(
+      b"--tail\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\nok\r\n--tail--\r\n",
+    )
+    is Ok(_),
+  )
+  assert_true(
+    parser.feed_bytes(b"unexpected") is Err(MultipartError::UnexpectedBoundary),
+  )
+  assert_true(parser.finish() is Ok(_))
+  assert_true(
+    StreamingParser::from_content_type("application/json")
+    is Err(MultipartError::InvalidContentType),
+  )
+}
+
+///|
 test "collects ordered text and file form entries from streaming events" {
   let text_prefix = "--collect\r\n" +
     "Content-Disposition: form-data; name=\"tag\"\r\n\r\n" +
