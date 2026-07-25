@@ -26,6 +26,7 @@ pub(all) suberror MultipartError {
   MissingFieldName
   HeaderTooLarge(Int)
   PartCountExceeded(Int)
+  PartTooLarge(Int)
   InvalidStreamEvent
   FileTooLarge(Int)
   MissingClosingBoundary
@@ -92,6 +93,14 @@ pub(all) enum StreamEvent {
   Finished
 } derive(@debug.Debug)
 
+pub(all) struct StreamLimits {
+  max_body_size : Int
+  max_part_count : Int
+  max_header_size : Int
+  max_part_size : Int
+}
+pub fn StreamLimits::default() -> Self
+
 pub(all) enum StreamState {
   AwaitingOpening
   AwaitingHeaders
@@ -103,12 +112,17 @@ pub(all) struct StreamingParser {
   boundary : String
   opening : Bytes
   marker : Bytes
+  limits : StreamLimits
   mut pending : Bytes
   mut state : StreamState
+  mut received_size : Int
+  mut part_count : Int
+  mut current_part_size : Int
 }
 pub fn StreamingParser::feed_bytes(Self, Bytes) -> Result[Array[StreamEvent], MultipartError]
 pub fn StreamingParser::finish(Self) -> Result[Array[StreamEvent], MultipartError]
 pub fn StreamingParser::new(String) -> Self
+pub fn StreamingParser::with_limits(String, StreamLimits) -> Self
 
 pub(all) struct TextField {
   name : String

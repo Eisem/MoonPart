@@ -239,6 +239,55 @@ test "streaming parser preserves binary data at every split point" {
 }
 
 ///|
+test "streaming parser enforces body, header, count, and part limits" {
+  let body_limited = StreamingParser::with_limits("limit", StreamLimits::{
+    max_body_size: 3,
+    max_part_count: 1,
+    max_header_size: 64,
+    max_part_size: 64,
+  })
+  assert_true(
+    body_limited.feed_bytes(b"1234") is Err(MultipartError::BodyTooLarge(3)),
+  )
+  let header_limited = StreamingParser::with_limits("limit", StreamLimits::{
+    max_body_size: 512,
+    max_part_count: 1,
+    max_header_size: 8,
+    max_part_size: 64,
+  })
+  assert_true(
+    header_limited.feed_bytes(
+      b"--limit\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\n",
+    )
+    is Err(MultipartError::HeaderTooLarge(8)),
+  )
+  let part_limited = StreamingParser::with_limits("limit", StreamLimits::{
+    max_body_size: 512,
+    max_part_count: 1,
+    max_header_size: 64,
+    max_part_size: 2,
+  })
+  assert_true(
+    part_limited.feed_bytes(
+      b"--limit\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\nabc\r\n--limit--\r\n",
+    )
+    is Err(MultipartError::PartTooLarge(2)),
+  )
+  let count_limited = StreamingParser::with_limits("limit", StreamLimits::{
+    max_body_size: 512,
+    max_part_count: 1,
+    max_header_size: 64,
+    max_part_size: 64,
+  })
+  assert_true(
+    count_limited.feed_bytes(
+      b"--limit\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n--limit\r\nContent-Disposition: form-data; name=\"b\"\r\n\r\n2\r\n--limit--\r\n",
+    )
+    is Err(MultipartError::PartCountExceeded(1)),
+  )
+}
+
+///|
 test "collects ordered text and file form entries from streaming events" {
   let text_prefix = "--collect\r\n" +
     "Content-Disposition: form-data; name=\"tag\"\r\n\r\n" +

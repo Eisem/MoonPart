@@ -28,6 +28,7 @@ pub(all) suberror MultipartError {
   MissingFieldName
   HeaderTooLarge(Int)
   PartCountExceeded(Int)
+  PartTooLarge(Int)
   InvalidStreamEvent
   FileTooLarge(Int)
   MissingClosingBoundary

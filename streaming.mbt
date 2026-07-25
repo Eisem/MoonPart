@@ -8,24 +8,63 @@ pub(all) enum StreamState {
 } derive(Debug)
 
 ///|
+/// Resource bounds for the incremental decoder. They mirror the limits that
+/// production multipart readers use to prevent unbounded header or body
+/// buffering.
+pub(all) struct StreamLimits {
+  max_body_size : Int
+  max_part_count : Int
+  max_header_size : Int
+  max_part_size : Int
+}
+
+///|
+pub fn StreamLimits::default() -> StreamLimits {
+  StreamLimits::{
+    max_body_size: 8_388_608,
+    max_part_count: 1_024,
+    max_header_size: 16_384,
+    max_part_size: 8_388_608,
+  }
+}
+
+///|
 /// Incremental multipart decoder. `feed_bytes` emits completed protocol events
 /// as soon as they are known, retaining only a short possible-boundary suffix.
 pub(all) struct StreamingParser {
   boundary : String
   opening : Bytes
   marker : Bytes
+  limits : StreamLimits
   mut pending : Bytes
   mut state : StreamState
+  mut received_size : Int
+  mut part_count : Int
+  mut current_part_size : Int
 }
 
 ///|
 pub fn StreamingParser::new(boundary : String) -> StreamingParser {
+  StreamingParser::with_limits(boundary, StreamLimits::default())
+}
+
+///|
+/// Creates an incremental decoder with explicit bounds for the complete wire
+/// body, each header block, the part count, and each individual part body.
+pub fn StreamingParser::with_limits(
+  boundary : String,
+  limits : StreamLimits,
+) -> StreamingParser {
   StreamingParser::{
     boundary,
     opening: @utf8.encode("--" + boundary + "\r\n"),
     marker: @utf8.encode("\r\n--" + boundary),
+    limits,
     pending: b"",
     state: AwaitingOpening,
+    received_size: 0,
+    part_count: 0,
+    current_part_size: 0,
   }
 }
 
@@ -38,6 +77,11 @@ pub fn StreamingParser::feed_bytes(
   guard is_valid_boundary(self.boundary) else {
     return Err(MultipartError::InvalidBoundary)
   }
+  let next_size = self.received_size + chunk.length()
+  if next_size > self.limits.max_body_size {
+    return Err(MultipartError::BodyTooLarge(self.limits.max_body_size))
+  }
+  self.received_size = next_size
   self.pending = concat_bytes(self.pending, chunk)
   self.drain([])
 }
@@ -76,8 +120,28 @@ fn StreamingParser::drain(
       self.drain(events)
     }
     AwaitingHeaders => {
-      guard self.pending.find(b"\r\n\r\n") is Some(header_end) else {
-        return Ok(events)
+      let header_end = match self.pending.find(b"\r\n\r\n") {
+        None => {
+          if self.pending.length() > self.limits.max_header_size + 3 {
+            return Err(
+              MultipartError::HeaderTooLarge(self.limits.max_header_size),
+            )
+          }
+          return Ok(events)
+        }
+        Some(header_end) => {
+          if header_end > self.limits.max_header_size {
+            return Err(
+              MultipartError::HeaderTooLarge(self.limits.max_header_size),
+            )
+          }
+          header_end
+        }
+      }
+      if self.part_count >= self.limits.max_part_count {
+        return Err(
+          MultipartError::PartCountExceeded(self.limits.max_part_count),
+        )
       }
       let headers = match
         parse_headers(@utf8.decode_lossy(self.pending.view(end=header_end))) {
@@ -90,6 +154,8 @@ fn StreamingParser::drain(
       }
       self.pending = self.pending.view(start=header_end + 4).to_owned()
       self.state = ReadingBody
+      self.part_count = self.part_count + 1
+      self.current_part_size = 0
       events.push(StreamEvent::PartBegin(headers))
       self.drain(events)
     }
@@ -110,9 +176,11 @@ fn StreamingParser::drain_body(
         return Ok(events)
       }
       let emit_end = self.pending.length() - keep
-      events.push(
-        StreamEvent::PartData(self.pending.view(end=emit_end).to_owned()),
-      )
+      let data = self.pending.view(end=emit_end).to_owned()
+      match self.emit_part_data(events, data) {
+        Ok(_) => ()
+        Err(error) => return Err(error)
+      }
       self.pending = self.pending.view(start=emit_end).to_owned()
       Ok(events)
     }
@@ -120,11 +188,11 @@ fn StreamingParser::drain_body(
       let after_marker = marker_start + self.marker.length()
       if self.pending.length() < after_marker + 2 {
         if marker_start > 0 {
-          events.push(
-            StreamEvent::PartData(
-              self.pending.view(end=marker_start).to_owned(),
-            ),
-          )
+          let data = self.pending.view(end=marker_start).to_owned()
+          match self.emit_part_data(events, data) {
+            Ok(_) => ()
+            Err(error) => return Err(error)
+          }
           self.pending = self.pending.view(start=marker_start).to_owned()
         }
         return Ok(events)
@@ -132,11 +200,11 @@ fn StreamingParser::drain_body(
       let suffix = self.pending.view(start=after_marker)
       if suffix.has_prefix(b"--") || suffix.has_prefix(b"\r\n") {
         if marker_start > 0 {
-          events.push(
-            StreamEvent::PartData(
-              self.pending.view(end=marker_start).to_owned(),
-            ),
-          )
+          let data = self.pending.view(end=marker_start).to_owned()
+          match self.emit_part_data(events, data) {
+            Ok(_) => ()
+            Err(error) => return Err(error)
+          }
         }
         self.pending = self.pending.view(start=after_marker + 2).to_owned()
         events.push(StreamEvent::PartEnd)
@@ -149,13 +217,30 @@ fn StreamingParser::drain_body(
         return self.drain(events)
       }
       let emit_end = marker_start + 1
-      events.push(
-        StreamEvent::PartData(self.pending.view(end=emit_end).to_owned()),
-      )
+      let data = self.pending.view(end=emit_end).to_owned()
+      match self.emit_part_data(events, data) {
+        Ok(_) => ()
+        Err(error) => return Err(error)
+      }
       self.pending = self.pending.view(start=emit_end).to_owned()
       self.drain_body(events)
     }
   }
+}
+
+///|
+fn StreamingParser::emit_part_data(
+  self : StreamingParser,
+  events : Array[StreamEvent],
+  data : Bytes,
+) -> Result[Unit, MultipartError] {
+  let next_size = self.current_part_size + data.length()
+  if next_size > self.limits.max_part_size {
+    return Err(MultipartError::PartTooLarge(self.limits.max_part_size))
+  }
+  self.current_part_size = next_size
+  events.push(StreamEvent::PartData(data))
+  Ok(())
 }
 
 ///|
