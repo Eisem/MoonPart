@@ -5,10 +5,15 @@ small, strict RFC 7578-oriented parser and encoder for HTTP form bodies.
 
 ## Current status
 
-The initial release provides a text-based incremental collector: call `feed`
-with chunks at arbitrary boundaries, then call `finish`. Boundary delimiters
-split between chunks are handled correctly. The next milestone is a byte-based
-event parser that can stream file contents without retaining full bodies.
+The library includes both a convenient text collector and `StreamingParser`, a
+byte-preserving event parser. `StreamingParser::feed_bytes` accepts arbitrary
+network chunks and emits `PartBegin`, `PartData`, `PartEnd`, and `Finished`
+events as soon as they are known. It keeps only a possible-boundary suffix,
+rather than retaining whole uploaded files.
+
+`StreamLimits` bounds the complete wire body, header blocks, number of parts,
+and each part body. This is suitable for HTTP handlers that must reject hostile
+or accidental oversized uploads early.
 
 Each decoded `Part` retains headers and exposes `name`, `filename`, `is_file`,
 and `content_type` convenience accessors. Missing part Content-Type values use
@@ -51,6 +56,40 @@ test "parse one field" {
   }
 }
 ```
+
+## Streaming an upload
+
+```mbt check
+///|
+test "handle an upload incrementally" {
+  let parser = @moonpart.StreamingParser::from_content_type(
+    "multipart/form-data; boundary=upload",
+  )
+  guard parser is Ok(parser) else { fail("invalid content type") }
+  let chunks = [
+    b"--upload\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.bin\"\r\n\r\nabc",
+    b"\r\n--upload--\r\n",
+  ]
+  for chunk in chunks {
+    guard parser.feed_bytes(chunk) is Ok(events) else {
+      fail("invalid multipart body")
+    }
+    for event in events {
+      match event {
+        @moonpart.StreamEvent::PartData(data) =>
+          // Write data to a file, socket, or other application sink here.
+          assert_true(data.length() > 0)
+        _ => ()
+      }
+    }
+  }
+  assert_true(parser.finish() is Ok(_))
+}
+```
+
+For small forms, feed the same events to `FormDataCollector`; it preserves the
+wire order and repeated field names while exposing text fields and raw file
+bytes. Its configurable per-part memory limit makes its buffering explicit.
 
 ## Development
 
