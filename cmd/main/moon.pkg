@@ -1,5 +1,6 @@
 import {
   "eisem/moonpart" @lib,
+  "moonbitlang/core/buffer",
 }
 
 options(

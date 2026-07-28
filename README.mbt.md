@@ -105,6 +105,12 @@ sink without constructing the complete file in memory.
 decoding, limits, field validation, and sink delivery behind one `feed_bytes`
 API for HTTP handlers.
 
+Run the complete streaming example with:
+
+```sh
+moon run cmd/main
+```
+
 ## Development
 
 ```sh
