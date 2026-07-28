@@ -177,6 +177,7 @@ pub fn StreamingFormCollector::push(Self, StreamEvent) -> Result[Unit, Multipart
 pub(all) struct StreamingFormDecoder {
   parser : StreamingParser
   collector : StreamingFormCollector
+  mut failed : MultipartError?
 }
 pub fn StreamingFormDecoder::feed_bytes(Self, Bytes) -> Result[Unit, MultipartError]
 pub fn StreamingFormDecoder::finish(Self) -> Result[StreamedFormData, MultipartError]

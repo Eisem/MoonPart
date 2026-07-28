@@ -239,6 +239,7 @@ pub fn StreamingFormCollector::finish(
 pub(all) struct StreamingFormDecoder {
   parser : StreamingParser
   collector : StreamingFormCollector
+  mut failed : MultipartError?
 }
 
 ///|
@@ -257,6 +258,7 @@ pub fn StreamingFormDecoder::new(
       limits=form_limits,
       allowed_fields~,
     ),
+    failed: None,
   }
 }
 
@@ -290,6 +292,24 @@ pub fn StreamingFormDecoder::feed_bytes(
   self : StreamingFormDecoder,
   chunk : Bytes,
 ) -> Result[Unit, MultipartError] {
+  match self.failed {
+    Some(error) => return Err(error)
+    None => ()
+  }
+  match self.feed_chunk(chunk) {
+    Ok(_) => Ok(())
+    Err(error) => {
+      self.failed = Some(error)
+      Err(error)
+    }
+  }
+}
+
+///|
+fn StreamingFormDecoder::feed_chunk(
+  self : StreamingFormDecoder,
+  chunk : Bytes,
+) -> Result[Unit, MultipartError] {
   match self.parser.feed_bytes(chunk) {
     Err(error) => Err(error)
     Ok(events) => {
@@ -307,6 +327,23 @@ pub fn StreamingFormDecoder::feed_bytes(
 ///|
 /// Validates the closing boundary and returns text fields plus file metadata.
 pub fn StreamingFormDecoder::finish(
+  self : StreamingFormDecoder,
+) -> Result[StreamedFormData, MultipartError] {
+  match self.failed {
+    Some(error) => return Err(error)
+    None => ()
+  }
+  match self.finish_stream() {
+    Ok(form) => Ok(form)
+    Err(error) => {
+      self.failed = Some(error)
+      Err(error)
+    }
+  }
+}
+
+///|
+fn StreamingFormDecoder::finish_stream(
   self : StreamingFormDecoder,
 ) -> Result[StreamedFormData, MultipartError] {
   match self.parser.finish() {

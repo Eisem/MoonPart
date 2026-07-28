@@ -667,3 +667,24 @@ test "streaming form decoder connects content type parser and sink" {
   assert_eq(form.files.length(), 1)
   assert_true(file_data.to_bytes() == b"\x00\xff")
 }
+
+///|
+test "streaming form decoder stops after a sink failure" {
+  let sink = fn(_event : FileSinkEvent) -> Result[Unit, MultipartError] {
+    Err(MultipartError::SinkFailure("unavailable"))
+  }
+  let decoder = StreamingFormDecoder::new("stop", sink)
+  assert_true(
+    decoder.feed_bytes(
+      b"--stop\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.bin\"\r\n\r\n",
+    )
+    is Err(MultipartError::SinkFailure("unavailable")),
+  )
+  assert_true(
+    decoder.feed_bytes(b"data\r\n--stop--\r\n")
+    is Err(MultipartError::SinkFailure("unavailable")),
+  )
+  assert_true(
+    decoder.finish() is Err(MultipartError::SinkFailure("unavailable")),
+  )
+}
