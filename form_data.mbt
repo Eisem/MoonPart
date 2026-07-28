@@ -116,7 +116,7 @@ pub(all) struct FieldSizeLimit {
 ///|
 /// Event consumer that builds an in-memory FormData value from a
 /// StreamingParser. Use a future sink-based collector for very large files.
-pub(all) struct FormDataCollector {
+pub struct FormDataCollector {
   entries : Array[FormEntry]
   buffer : @buffer.Buffer
   limits : FormDataLimits

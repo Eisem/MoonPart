@@ -1,6 +1,6 @@
 ///|
 /// Internal state of an incremental binary multipart decoder.
-pub(all) enum StreamState {
+enum StreamState {
   AwaitingOpening
   AwaitingHeaders
   ReadingBody
@@ -33,7 +33,7 @@ pub fn StreamLimits::default() -> StreamLimits {
 ///|
 /// Incremental multipart decoder. `feed_bytes` emits completed protocol events
 /// as soon as they are known, retaining only a short possible-boundary suffix.
-pub(all) struct StreamingParser {
+pub struct StreamingParser {
   boundary : String
   opening : Bytes
   marker : Bytes

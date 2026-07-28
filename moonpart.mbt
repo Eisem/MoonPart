@@ -46,7 +46,7 @@ pub(all) suberror MultipartError {
 /// An incremental multipart collector. Chunks may be supplied at arbitrary
 /// boundaries; parsing happens on `finish` so a delimiter split across chunks
 /// is handled exactly like an unsplit delimiter.
-pub(all) struct Parser {
+pub struct Parser {
   boundary : String
   max_body_size : Int
   max_part_count : Int

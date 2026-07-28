@@ -35,7 +35,7 @@ pub(all) struct StreamedFormData {
 ///|
 /// Consumes multipart events while forwarding file bytes to a callback. An
 /// empty `allowed_fields` list accepts every field name.
-pub(all) struct StreamingFormCollector {
+pub struct StreamingFormCollector {
   fields : Array[TextField]
   files : Array[StreamedFile]
   text_buffer : @buffer.Buffer
@@ -258,7 +258,7 @@ pub fn StreamingFormCollector::finish(
 ///|
 /// End-to-end multipart/form-data decoder that connects StreamingParser to a
 /// StreamingFormCollector. File bytes go directly to the supplied sink.
-pub(all) struct StreamingFormDecoder {
+pub struct StreamingFormDecoder {
   parser : StreamingParser
   collector : StreamingFormCollector
   mut failed : MultipartError?
