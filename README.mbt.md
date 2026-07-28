@@ -176,7 +176,8 @@ MoonBit's coverage analyzer on every push and pull request.
 
 The implementation design is documented in [docs/DESIGN.md](docs/DESIGN.md).
 See [CONTRIBUTING.md](CONTRIBUTING.md) for the change workflow and
-[CHANGELOG.md](CHANGELOG.md) for release notes.
+[CHANGELOG.md](CHANGELOG.md) for release notes. The latest reproducible
+competition checklist is in [docs/ACCEPTANCE.md](docs/ACCEPTANCE.md).
 
 The implementation is original and takes RFC 7578 and RFC 2046 as behavioral
 references. It is licensed under Apache-2.0.
