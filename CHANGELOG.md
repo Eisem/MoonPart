@@ -13,6 +13,7 @@ Semantic Versioning.
 - Configurable body, part, header, field, and file limits.
 - In-memory form collection with repeated-field support.
 - Sink-oriented file streaming and an end-to-end streaming form decoder.
+- Binary-preserving streaming multipart encoding from `StreamEvent` values.
 - Per-field size limits and allowed-field validation.
 - Runnable example, benchmark baselines, multi-backend tests, and CI.
 

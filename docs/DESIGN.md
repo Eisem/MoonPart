@@ -32,6 +32,22 @@ FormData                StreamedFormData
 common HTTP-handler path. `Parser` remains the convenience API for small,
 text-oriented complete bodies.
 
+The outbound path uses the same event vocabulary:
+
+```text
+StreamEvent: PartBegin / PartData / PartEnd / Finished
+        |
+        v
+StreamingEncoder
+  ordering + strict headers + boundary framing
+        |
+        v
+Bytes chunks -> application-owned HTTP/file sink
+```
+
+The encoder retains only its boundary and state. Header blocks are serialized
+as small UTF-8 chunks, while `PartData` bytes pass through unchanged.
+
 ## State-machine invariants
 
 The streaming parser advances through opening-boundary, headers, body, and
@@ -54,11 +70,16 @@ Resource accounting is monotonic:
 A sink error is terminal. No later file events are delivered after the
 collector records a failure.
 
+The streaming encoder accepts only a begin/data/end sequence followed by
+another part or the final marker. Invalid boundaries, unsafe headers, and
+out-of-order events are terminal errors.
+
 ## Header policy
 
 Part headers use strict CRLF framing. Header names must use HTTP token
-characters; control characters, obsolete folding, malformed fields, and
-ambiguous duplicate `Content-Disposition` values are rejected.
+characters; control characters, obsolete folding, malformed fields, duplicate
+`Content-Disposition` or `Content-Type` headers, and repeated MIME parameters
+are rejected.
 
 The parser requires a form-data disposition with a field name before collectors
 accept a part. Missing Content-Type values use the RFC 7578 `text/plain`

@@ -25,6 +25,10 @@ network chunks and emits `PartBegin`, `PartData`, `PartEnd`, and `Finished`
 events as soon as they are known. It keeps only a possible-boundary suffix,
 rather than retaining whole uploaded files.
 
+`StreamingEncoder` performs the inverse operation. It converts the same events
+into immediately writable `Bytes` chunks and passes `PartData` through without
+text conversion or whole-body buffering.
+
 `StreamLimits` bounds the complete wire body, header blocks, number of parts,
 and each part body. This is suitable for HTTP handlers that must reject hostile
 or accidental oversized uploads early.
@@ -122,6 +126,42 @@ API for HTTP handlers.
 Use `FieldSizeLimit` when a specific field needs a stricter cap than the global
 text or file limit, for example a short `title` alongside a larger `asset`.
 
+## Streaming an encoded body
+
+Create `StreamEvent` values in wire order and write each returned chunk directly
+to an HTTP request body, file, or application sink:
+
+```mbt check
+///|
+test "encode binary data incrementally" {
+  let encoder = @moonpart.StreamingEncoder::new("out")
+  let chunks = []
+  let events = [
+    @moonpart.StreamEvent::PartBegin([
+      @moonpart.Header::{
+        name: "Content-Disposition",
+        value: "form-data; name=\"file\"; filename=\"a.bin\"",
+      },
+    ]),
+    @moonpart.StreamEvent::PartData(b"\x00\xff"),
+    @moonpart.StreamEvent::PartEnd,
+    @moonpart.StreamEvent::Finished,
+  ]
+  for event in events {
+    guard encoder.push(event) is Ok(chunk) else {
+      fail("invalid encoder event")
+    }
+    chunks.push(chunk)
+  }
+  assert_true(chunks[1] == b"\x00\xff")
+  assert_true(chunks[3] == b"--out--\r\n")
+}
+```
+
+`StreamingEncoder::content_type` returns the matching quoted Content-Type
+value. Invalid boundaries, unsafe headers, and out-of-order events are rejected;
+after an error the encoder remains failed.
+
 ## Choosing an API
 
 | Use case | API | Body storage |
@@ -131,6 +171,7 @@ text or file limit, for example a short `title` alongside a larger `asset`.
 | Incremental protocol parsing | `StreamingParser` | Possible-boundary suffix only |
 | Small forms collected in memory | `FormDataCollector` | Text and file bodies |
 | Large files sent to a sink | `StreamingFormDecoder` | Text fields and file metadata |
+| Incremental binary encoding | `StreamingEncoder` | Current header chunk only |
 
 Run the complete streaming example with:
 
