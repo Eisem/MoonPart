@@ -19,7 +19,7 @@ tagged GitHub release remain external completion steps.
 | Public repository | Pass | `https://github.com/Eisem/MoonPart`, default branch `master` |
 | Clear README and usage | Pass | Purpose, API selection, examples, limits, scope, security, and development commands are documented |
 | Runnable example | Pass | `moon run cmd/main` prints one decoded field and one streamed 9-byte file |
-| Continuous integration | Pass | GitHub Actions run `30343268185` passed; the verified local baseline reproduces the same workflow |
+| Continuous integration | Pass | GitHub Actions run `30344161974` passed; the verified local baseline reproduces the same workflow |
 | Build and checks | Pass | `moon check --target all` and `moon build --target all` |
 | Runnable tests | Pass | 39/39 tests pass on wasm, wasm-gc, JavaScript, and native |
 | Documentation tests | Pass | 4/4 `README.mbt.md` tests pass |
