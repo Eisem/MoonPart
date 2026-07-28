@@ -43,6 +43,8 @@ pub(all) suberror MultipartError {
 } derive(@debug.Debug)
 
 // Types and methods
+type EncoderState
+
 pub(all) struct FieldSizeLimit {
   name : String
   max_size : Int
@@ -159,6 +161,16 @@ pub(all) struct StreamedFormData {
   fields : Array[TextField]
   files : Array[StreamedFile]
 } derive(@debug.Debug)
+
+pub struct StreamingEncoder {
+  boundary : String
+  mut state : EncoderState
+  mut failed : MultipartError?
+}
+pub fn StreamingEncoder::content_type(Self) -> String
+pub fn StreamingEncoder::from_content_type(String) -> Result[Self, MultipartError]
+pub fn StreamingEncoder::new(String) -> Self
+pub fn StreamingEncoder::push(Self, StreamEvent) -> Result[Bytes, MultipartError]
 
 pub struct StreamingFormCollector {
   fields : Array[TextField]

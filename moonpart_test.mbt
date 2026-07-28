@@ -836,3 +836,73 @@ test "streaming form decoder stops after a sink failure" {
     decoder.finish() is Err(MultipartError::SinkFailure("unavailable")),
   )
 }
+
+///|
+test "streaming encoder emits binary-safe wire chunks" {
+  let encoder = StreamingEncoder::new("encode")
+  assert_eq(encoder.content_type(), "multipart/form-data; boundary=\"encode\"")
+  let output = @buffer.Buffer()
+  let events = [
+    StreamEvent::PartBegin([
+      Header::{
+        name: "Content-Disposition",
+        value: "form-data; name=\"asset\"; filename=\"a.bin\"",
+      },
+      Header::{ name: "Content-Type", value: "application/octet-stream" },
+    ]),
+    StreamEvent::PartData(b"\x00\xffpayload"),
+    StreamEvent::PartEnd,
+    StreamEvent::Finished,
+  ]
+  for event in events {
+    guard encoder.push(event) is Ok(chunk) else {
+      fail("encoder should accept a valid event sequence")
+    }
+    output.write_bytes(chunk[:])
+  }
+  assert_true(
+    output.to_bytes() ==
+    b"--encode\r\nContent-Disposition: form-data; name=\"asset\"; filename=\"a.bin\"\r\nContent-Type: application/octet-stream\r\n\r\n\x00\xffpayload\r\n--encode--\r\n",
+  )
+  assert_true(
+    encoder.push(StreamEvent::Finished)
+    is Err(MultipartError::InvalidStreamEvent),
+  )
+}
+
+///|
+test "streaming encoder rejects invalid boundaries, headers, and event order" {
+  let invalid_boundary = StreamingEncoder::new("bad\r\nboundary")
+  assert_true(
+    invalid_boundary.push(StreamEvent::Finished)
+    is Err(MultipartError::InvalidBoundary),
+  )
+  let invalid_order = StreamingEncoder::new("order")
+  assert_true(
+    invalid_order.push(StreamEvent::PartData(b"orphan"))
+    is Err(MultipartError::InvalidStreamEvent),
+  )
+  assert_true(
+    invalid_order.push(StreamEvent::PartBegin([]))
+    is Err(MultipartError::InvalidStreamEvent),
+  )
+  let invalid_header = StreamingEncoder::new("header")
+  assert_true(
+    invalid_header.push(
+      StreamEvent::PartBegin([
+        Header::{
+          name: "Content-Disposition",
+          value: "form-data; name=\"field\"",
+        },
+        Header::{ name: "X-Unsafe\r\nInjected", value: "value" },
+      ]),
+    )
+    is Err(MultipartError::InvalidHeader(_)),
+  )
+  assert_true(
+    StreamingEncoder::from_content_type(
+      "multipart/form-data; boundary=\"quoted:boundary\"",
+    )
+    is Ok(_),
+  )
+}
