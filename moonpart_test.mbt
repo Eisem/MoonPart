@@ -494,3 +494,57 @@ test "collector rejects unexpected field names before body data" {
     is Err(MultipartError::UnexpectedField("admin")),
   )
 }
+
+///|
+test "streaming pipeline accepts every small chunk width" {
+  let source_buffer = @buffer.Buffer()
+  source_buffer.write_utf8(
+    "--stress\r\n" +
+    "Content-Disposition: form-data; name=\"title\"\r\n\r\n" +
+    "MoonPart\r\n" +
+    "--stress\r\n" +
+    "Content-Disposition: form-data; name=\"asset\"; filename=\"raw.bin\"\r\n" +
+    "Content-Type: application/octet-stream\r\n\r\n",
+  )
+  source_buffer.write_bytes(
+    b"\x00\xffbefore\r\n--stress-not-a-boundary\r\nafter",
+  )
+  source_buffer.write_utf8("\r\n--stress--\r\n")
+  let source = source_buffer.to_bytes()
+  let expected_file = b"\x00\xffbefore\r\n--stress-not-a-boundary\r\nafter"
+  for chunk_size in 1..<17 {
+    let parser = StreamingParser::new("stress")
+    let collector = FormDataCollector::with_allowed_fields(["title", "asset"])
+    for cursor = 0 {
+      if cursor >= source.length() {
+        break
+      }
+      let chunk_end = if cursor + chunk_size < source.length() {
+        cursor + chunk_size
+      } else {
+        source.length()
+      }
+      guard parser.feed_bytes(
+          source.view(start=cursor, end=chunk_end).to_owned(),
+        )
+        is Ok(events) else {
+        fail("chunk width \{chunk_size} should parse")
+      }
+      for event in events {
+        guard collector.push(event) is Ok(_) else {
+          fail("chunk width \{chunk_size} should collect")
+        }
+      }
+      continue chunk_end
+    }
+    assert_true(parser.finish() is Ok(_))
+    guard collector.finish() is Ok(form) else {
+      fail("chunk width \{chunk_size} should finish")
+    }
+    assert_true(form.text("title") == Some("MoonPart"))
+    guard form.file("asset") is Some(file) else {
+      fail("chunk width \{chunk_size} should retain the file")
+    }
+    assert_true(file.data == expected_file)
+  }
+}
