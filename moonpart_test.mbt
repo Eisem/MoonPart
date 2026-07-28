@@ -361,6 +361,15 @@ test "collects ordered text and file form entries from streaming events" {
   }
   guard collector.finish() is Ok(form) else { fail("collector should finish") }
   assert_eq(form.entries.length(), 3)
+  assert_true(form.text("tag") == Some("first"))
+  assert_true(form.text("missing") is None)
+  assert_true(form.text_all("tag") == ["first", "second"])
+  assert_eq(form.files("asset").length(), 1)
+  assert_true(form.files("missing").is_empty())
+  guard form.file("asset") is Some(asset) else {
+    fail("asset file should be available by name")
+  }
+  assert_eq(asset.filename, "raw.bin")
   match form.entries[0] {
     FormEntry::Text(field) => {
       assert_eq(field.name, "tag")

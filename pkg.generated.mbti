@@ -41,6 +41,10 @@ pub(all) suberror MultipartError {
 pub(all) struct FormData {
   entries : Array[FormEntry]
 } derive(@debug.Debug)
+pub fn FormData::file(Self, String) -> UploadedFile?
+pub fn FormData::files(Self, String) -> Array[UploadedFile]
+pub fn FormData::text(Self, String) -> String?
+pub fn FormData::text_all(Self, String) -> Array[String]
 
 pub(all) struct FormDataCollector {
   entries : Array[FormEntry]

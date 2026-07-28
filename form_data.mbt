@@ -28,6 +28,56 @@ pub(all) struct FormData {
 } derive(Debug)
 
 ///|
+/// Returns the first text value with the supplied field name.
+pub fn FormData::text(self : FormData, name : String) -> String? {
+  for entry in self.entries {
+    match entry {
+      Text(field) => if field.name == name { return Some(field.value) }
+      File(_) => ()
+    }
+  }
+  None
+}
+
+///|
+/// Returns every text value with the supplied field name in wire order.
+pub fn FormData::text_all(self : FormData, name : String) -> Array[String] {
+  let values : Array[String] = []
+  for entry in self.entries {
+    match entry {
+      Text(field) => if field.name == name { values.push(field.value) }
+      File(_) => ()
+    }
+  }
+  values
+}
+
+///|
+/// Returns the first uploaded file with the supplied field name.
+pub fn FormData::file(self : FormData, name : String) -> UploadedFile? {
+  for entry in self.entries {
+    match entry {
+      File(file) => if file.field_name == name { return Some(file) }
+      Text(_) => ()
+    }
+  }
+  None
+}
+
+///|
+/// Returns every uploaded file with the supplied field name in wire order.
+pub fn FormData::files(self : FormData, name : String) -> Array[UploadedFile] {
+  let files : Array[UploadedFile] = []
+  for entry in self.entries {
+    match entry {
+      File(file) => if file.field_name == name { files.push(file) }
+      Text(_) => ()
+    }
+  }
+  files
+}
+
+///|
 /// Resource bounds for the in-memory form collector. Text and file limits are
 /// separate because applications commonly accept many small fields but only a
 /// small number of larger uploads.
