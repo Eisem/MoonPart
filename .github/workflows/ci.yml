@@ -13,10 +13,12 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
-        uses: actions/checkout@v4
+        uses: actions/checkout@v5
 
       - name: Set up MoonBit
-        uses: hustcer/setup-moonbit@v1
+        uses: hustcer/setup-moonbit@v1.22
+        with:
+          version: 0.10.0+e66899a54
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
