@@ -626,4 +626,11 @@ test "sink collector propagates application write failures" {
     collector.push(StreamEvent::PartBegin(headers))
     is Err(MultipartError::SinkFailure("disk full")),
   )
+  assert_true(
+    collector.push(StreamEvent::PartData(b"retry"))
+    is Err(MultipartError::SinkFailure("disk full")),
+  )
+  assert_true(
+    collector.finish() is Err(MultipartError::SinkFailure("disk full")),
+  )
 }

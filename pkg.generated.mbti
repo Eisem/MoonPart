@@ -168,6 +168,7 @@ pub(all) struct StreamingFormCollector {
   mut field_count : Int
   mut file_count : Int
   mut finished : Bool
+  mut failed : MultipartError?
 }
 pub fn StreamingFormCollector::finish(Self) -> Result[StreamedFormData, MultipartError]
 pub fn StreamingFormCollector::new((FileSinkEvent) -> Result[Unit, MultipartError], limits? : FormDataLimits, allowed_fields? : Array[String]) -> Self

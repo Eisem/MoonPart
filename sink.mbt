@@ -48,6 +48,7 @@ pub(all) struct StreamingFormCollector {
   mut field_count : Int
   mut file_count : Int
   mut finished : Bool
+  mut failed : MultipartError?
 }
 
 ///|
@@ -69,12 +70,31 @@ pub fn StreamingFormCollector::new(
     field_count: 0,
     file_count: 0,
     finished: false,
+    failed: None,
   }
 }
 
 ///|
 /// Consumes one event produced by StreamingParser.
 pub fn StreamingFormCollector::push(
+  self : StreamingFormCollector,
+  event : StreamEvent,
+) -> Result[Unit, MultipartError] {
+  match self.failed {
+    Some(error) => return Err(error)
+    None => ()
+  }
+  match self.push_event(event) {
+    Ok(_) => Ok(())
+    Err(error) => {
+      self.failed = Some(error)
+      Err(error)
+    }
+  }
+}
+
+///|
+fn StreamingFormCollector::push_event(
   self : StreamingFormCollector,
   event : StreamEvent,
 ) -> Result[Unit, MultipartError] {
@@ -202,9 +222,13 @@ pub fn StreamingFormCollector::push(
 pub fn StreamingFormCollector::finish(
   self : StreamingFormCollector,
 ) -> Result[StreamedFormData, MultipartError] {
-  if self.finished && self.current_headers is None {
-    Ok(StreamedFormData::{ fields: self.fields, files: self.files })
-  } else {
-    Err(MultipartError::InvalidStreamEvent)
+  match self.failed {
+    Some(error) => Err(error)
+    None =>
+      if self.finished && self.current_headers is None {
+        Ok(StreamedFormData::{ fields: self.fields, files: self.files })
+      } else {
+        Err(MultipartError::InvalidStreamEvent)
+      }
   }
 }
