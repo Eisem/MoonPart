@@ -2,7 +2,7 @@
 
 Audit date: 2026-07-28  
 Audit guide: `moonbitlang/skills` — `moonbit-agent-guide`  
-Verified baseline: `6db403b94abd9c48b5a514e7ab50732d4f2a808f`
+Verified baseline: `2e06ff552411697538df52265df37e44528d6b53`
 
 ## Result
 
@@ -21,12 +21,12 @@ tagged GitHub release remain external completion steps.
 | Runnable example | Pass | `moon run cmd/main` prints one decoded field and one streamed 9-byte file |
 | Continuous integration | Pass | GitHub Actions run `30343268185` passed; the verified local baseline reproduces the same workflow |
 | Build and checks | Pass | `moon check --target all` and `moon build --target all` |
-| Runnable tests | Pass | 36/36 tests pass on wasm, wasm-gc, JavaScript, and native |
-| Documentation tests | Pass | 3/3 `README.mbt.md` tests pass |
-| Coverage | Pass | 605/691 instrumented points (87.6%); 64 source lines remain uncovered |
+| Runnable tests | Pass | 39/39 tests pass on wasm, wasm-gc, JavaScript, and native |
+| Documentation tests | Pass | 4/4 `README.mbt.md` tests pass |
+| Coverage | Pass | 649/733 instrumented points (88.5%); 62 source lines remain uncovered |
 | Publishable package | Pass | `moon package --list` and `moon package` produce `eisem-moonpart-0.1.0.zip` |
 | Published to mooncakes.io | Pending | `eisem/moonpart` is not published as of the audit date |
-| Traceable development | Pass | 43 commits exist at the verified baseline; changelog and contribution workflow are present |
+| Traceable development | Pass | 48 commits exist at the verified baseline; changelog and contribution workflow are present |
 | Functional boundary | Pass | `README.mbt.md` and `docs/DESIGN.md` define responsibilities and non-goals |
 | Open-source compliance | Pass | Apache-2.0 license; implementation is original; no third-party module dependency |
 | Gitlink synchronization | Pending | The local repository has only the GitHub `origin` remote |
@@ -52,9 +52,11 @@ before submission because the registry can change.
   files are checked in CI.
 - Streaming parser memory is bounded by configured limits and a
   possible-boundary suffix; file storage is delegated to application sinks.
+- Streaming encoding preserves binary `PartData` and emits immediately writable
+  chunks without retaining the complete outbound body.
 - Sink failure is terminal, and callers retain responsibility for cleaning up
   partial external writes.
-- The project contains 2,682 physical MoonBit lines and approximately 2,325
+- The project contains 2,897 physical MoonBit lines and approximately 2,510
   nonblank, non-comment lines. This is below the competition's 4–10k reference
   range, although that range is described as guidance rather than a repository
   acceptance requirement.
