@@ -113,14 +113,13 @@ pub fn Parser::from_content_type(
 pub fn boundary_from_content_type(
   content_type : String,
 ) -> Result[String, MultipartError] {
-  guard content_type.split_once(";") is Some((media_type, parameters)) else {
+  guard parse_parameterized_value(content_type) is Ok(parsed) else {
     return Err(MultipartError::InvalidContentType)
   }
-  guard media_type.trim().to_owned().to_lower() == "multipart/form-data" else {
+  guard parsed.base.to_lower() == "multipart/form-data" else {
     return Err(MultipartError::InvalidContentType)
   }
-  let parameter_text = parameters.to_owned()
-  guard find_parameter(parameter_text, "boundary") is Some(boundary) else {
+  guard parsed.parameter("boundary") is Some(boundary) else {
     return Err(MultipartError::InvalidContentType)
   }
   guard is_valid_boundary(boundary) else {
@@ -445,95 +444,32 @@ fn validate_form_data_headers(
   headers : Array[Header],
 ) -> Result[Unit, MultipartError] {
   let mut disposition_count = 0
+  let mut content_type_count = 0
   for header in headers {
-    if header.name.to_lower() == "content-disposition" {
-      disposition_count = disposition_count + 1
+    match header.name.to_lower() {
+      "content-disposition" => disposition_count = disposition_count + 1
+      "content-type" => content_type_count = content_type_count + 1
+      _ => ()
     }
   }
   if disposition_count > 1 {
     return Err(MultipartError::DuplicateHeader("Content-Disposition"))
   }
+  if content_type_count > 1 {
+    return Err(MultipartError::DuplicateHeader("Content-Type"))
+  }
   guard find_header(headers, "content-disposition") is Some(disposition) else {
     return Err(MultipartError::MissingContentDisposition)
   }
-  let media_type = match disposition.split_once(";") {
-    Some((value, _)) => value.trim().to_owned()
-    None => disposition.trim().to_owned()
+  let parsed = match parse_parameterized_value(disposition) {
+    Ok(parsed) => parsed
+    Err(_) => return Err(MultipartError::InvalidContentDisposition)
   }
-  guard media_type.to_lower() == "form-data" else {
+  guard parsed.base.to_lower() == "form-data" else {
     return Err(MultipartError::InvalidContentDisposition)
   }
-  guard find_parameter(disposition, "name") is Some(_) else {
+  guard parsed.parameter("name") is Some(_) else {
     return Err(MultipartError::MissingFieldName)
   }
   Ok(())
-}
-
-///|
-fn find_parameter(value : String, parameter : String) -> String? {
-  let target = parameter.to_lower()
-  let segment = StringBuilder()
-  let mut quoted = false
-  let mut escaped = false
-  for character in value {
-    if escaped {
-      segment.write_char(character)
-      escaped = false
-    } else if quoted && character == '\\' {
-      segment.write_char(character)
-      escaped = true
-    } else if character == '\"' {
-      quoted = !quoted
-      segment.write_char(character)
-    } else if character == ';' && !quoted {
-      match parameter_from_segment(segment.to_string(), target) {
-        Some(result) => return Some(result)
-        None => segment.reset()
-      }
-    } else {
-      segment.write_char(character)
-    }
-  }
-  if quoted || escaped {
-    return None
-  }
-  parameter_from_segment(segment.to_string(), target)
-}
-
-///|
-fn parameter_from_segment(segment : String, target : String) -> String? {
-  let item = segment.trim().to_owned()
-  if item.split_once("=") is Some((key, raw_value)) &&
-    key.trim().to_owned().to_lower() == target {
-    let candidate = raw_value.trim().to_owned()
-    if candidate.length() >= 2 &&
-      candidate.has_prefix("\"") &&
-      candidate.has_suffix("\"") {
-      return Some(unescape_quoted_value(candidate[1:candidate.length() - 1]))
-    }
-    return Some(candidate)
-  }
-  None
-}
-
-///|
-/// Decodes quoted-string escapes used by MIME parameters. A backslash only
-/// escapes the next character; a trailing backslash is retained verbatim.
-fn unescape_quoted_value(value : StringView) -> String {
-  let output = StringBuilder()
-  let mut escaped = false
-  for character in value {
-    if escaped {
-      output.write_char(character)
-      escaped = false
-    } else if character == '\\' {
-      escaped = true
-    } else {
-      output.write_char(character)
-    }
-  }
-  if escaped {
-    output.write_char('\\')
-  }
-  output.to_string()
 }

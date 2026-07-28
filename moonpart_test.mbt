@@ -137,7 +137,7 @@ test "rejects content types without a valid boundary" {
   )
   assert_true(
     boundary_from_content_type("multipart/form-data; boundary=bad\r\nvalue")
-    is Err(MultipartError::InvalidBoundary),
+    is Err(MultipartError::InvalidContentType),
   )
 }
 
@@ -233,7 +233,7 @@ test "rejects malformed header names and unterminated parameters" {
     "body\r\n--syntax--\r\n"
   let parser = Parser::new("syntax")
   assert_true(parser.feed(unterminated) is Ok(_))
-  assert_true(parser.finish() is Err(MultipartError::MissingFieldName))
+  assert_true(parser.finish() is Err(MultipartError::InvalidContentDisposition))
   assert_true(
     boundary_from_content_type("multipart/form-data; boundary=\"unfinished")
     is Err(MultipartError::InvalidContentType),
@@ -259,6 +259,46 @@ test "rejects duplicate disposition and control characters in headers" {
   assert_true(
     parser.feed_bytes(@utf8.encode(bare_newline))
     is Err(MultipartError::InvalidHeader(_)),
+  )
+}
+
+///|
+test "rejects ambiguous MIME parameters and duplicate content types" {
+  assert_true(
+    boundary_from_content_type(
+      "multipart/form-data; boundary=first; boundary=second",
+    )
+    is Err(MultipartError::InvalidContentType),
+  )
+  assert_true(
+    boundary_from_content_type(
+      "multipart/form-data; boundary=\"quoted:boundary\"",
+    )
+    is Ok("quoted:boundary"),
+  )
+  let duplicate_name = "--params\r\n" +
+    "Content-Disposition: form-data; name=\"first\"; name=\"second\"\r\n\r\n" +
+    "body\r\n--params--\r\n"
+  let parser = Parser::new("params")
+  assert_true(parser.feed(duplicate_name) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::InvalidContentDisposition))
+  let duplicate_filename = "--params\r\n" +
+    "Content-Disposition: form-data; name=\"file\"; filename=\"a\"; filename=\"b\"\r\n\r\n" +
+    "body\r\n--params--\r\n"
+  let parser = StreamingParser::new("params")
+  assert_true(
+    parser.feed_bytes(@utf8.encode(duplicate_filename))
+    is Err(MultipartError::InvalidContentDisposition),
+  )
+  let duplicate_type = "--params\r\n" +
+    "Content-Disposition: form-data; name=\"file\"; filename=\"a\"\r\n" +
+    "Content-Type: text/plain\r\n" +
+    "Content-Type: application/octet-stream\r\n\r\n" +
+    "body\r\n--params--\r\n"
+  let parser = Parser::new("params")
+  assert_true(parser.feed(duplicate_type) is Ok(_))
+  assert_true(
+    parser.finish() is Err(MultipartError::DuplicateHeader("Content-Type")),
   )
 }
 
