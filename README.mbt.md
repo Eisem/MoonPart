@@ -117,6 +117,7 @@ moon run cmd/main
 moon fmt
 moon test
 moon check
+moon bench --target native
 ```
 
 Continuous integration checks formatting and generated interfaces, then builds
