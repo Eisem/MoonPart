@@ -16,9 +16,17 @@ Semantic Versioning.
 - Per-field size limits and allowed-field validation.
 - Runnable example, benchmark baselines, multi-backend tests, and CI.
 
+### Changed
+
+- Seal parser, collector, and decoder state behind their public methods.
+- Parse and cache form-part metadata once per part instead of once per chunk.
+
 ### Security
 
 - Reject ambiguous duplicate `Content-Disposition` headers.
+- Reject duplicate `Content-Type` headers and repeated MIME parameters such as
+  `boundary`, `name`, and `filename`.
+- Reject malformed quoted and unquoted MIME parameter syntax.
 - Reject malformed header names, values, and line folding.
 - Strip submitted filename path components through an explicit helper.
 
