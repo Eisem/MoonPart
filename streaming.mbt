@@ -15,6 +15,7 @@ pub(all) struct StreamLimits {
   max_body_size : Int
   max_part_count : Int
   max_header_size : Int
+  max_header_count : Int
   max_part_size : Int
 }
 
@@ -24,6 +25,7 @@ pub fn StreamLimits::default() -> StreamLimits {
     max_body_size: 8_388_608,
     max_part_count: 1_024,
     max_header_size: 16_384,
+    max_header_count: 128,
     max_part_size: 8_388_608,
   }
 }
@@ -165,7 +167,10 @@ fn StreamingParser::drain(
         )
       }
       let headers = match
-        parse_headers(@utf8.decode_lossy(self.pending.view(end=header_end))) {
+        parse_headers(
+          @utf8.decode_lossy(self.pending.view(end=header_end)),
+          max_header_count=self.limits.max_header_count,
+        ) {
         Ok(parsed) => parsed
         Err(error) => return Err(error)
       }

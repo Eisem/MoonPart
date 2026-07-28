@@ -244,6 +244,7 @@ test "streaming parser enforces body, header, count, and part limits" {
     max_body_size: 3,
     max_part_count: 1,
     max_header_size: 64,
+    max_header_count: 8,
     max_part_size: 64,
   })
   assert_true(
@@ -253,6 +254,7 @@ test "streaming parser enforces body, header, count, and part limits" {
     max_body_size: 512,
     max_part_count: 1,
     max_header_size: 8,
+    max_header_count: 8,
     max_part_size: 64,
   })
   assert_true(
@@ -265,6 +267,7 @@ test "streaming parser enforces body, header, count, and part limits" {
     max_body_size: 512,
     max_part_count: 1,
     max_header_size: 64,
+    max_header_count: 8,
     max_part_size: 2,
   })
   assert_true(
@@ -277,6 +280,7 @@ test "streaming parser enforces body, header, count, and part limits" {
     max_body_size: 512,
     max_part_count: 1,
     max_header_size: 64,
+    max_header_count: 8,
     max_part_size: 64,
   })
   assert_true(
@@ -284,6 +288,29 @@ test "streaming parser enforces body, header, count, and part limits" {
       b"--limit\r\nContent-Disposition: form-data; name=\"a\"\r\n\r\n1\r\n--limit\r\nContent-Disposition: form-data; name=\"b\"\r\n\r\n2\r\n--limit--\r\n",
     )
     is Err(MultipartError::PartCountExceeded(1)),
+  )
+}
+
+///|
+test "parsers reject too many headers in one part" {
+  let source = "--headers\r\n" +
+    "Content-Disposition: form-data; name=\"x\"\r\n" +
+    "X-One: 1\r\n" +
+    "X-Two: 2\r\n\r\n" +
+    "value\r\n--headers--\r\n"
+  let parser = Parser::with_limits("headers", max_header_count=2)
+  assert_true(parser.feed(source) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::HeaderCountExceeded(2)))
+  let streaming = StreamingParser::with_limits("headers", StreamLimits::{
+    max_body_size: 512,
+    max_part_count: 2,
+    max_header_size: 256,
+    max_header_count: 2,
+    max_part_size: 64,
+  })
+  assert_true(
+    streaming.feed_bytes(@utf8.encode(source))
+    is Err(MultipartError::HeaderCountExceeded(2)),
   )
 }
 

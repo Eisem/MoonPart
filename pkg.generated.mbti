@@ -25,6 +25,7 @@ pub(all) suberror MultipartError {
   InvalidContentDisposition
   MissingFieldName
   HeaderTooLarge(Int)
+  HeaderCountExceeded(Int)
   PartCountExceeded(Int)
   PartTooLarge(Int)
   InvalidStreamEvent
@@ -66,6 +67,7 @@ pub(all) struct Parser {
   max_body_size : Int
   max_part_count : Int
   max_header_size : Int
+  max_header_count : Int
   mut buffer : String
   mut failed : MultipartError?
 }
@@ -73,7 +75,7 @@ pub fn Parser::feed(Self, String) -> Result[Unit, MultipartError]
 pub fn Parser::finish(Self) -> Result[Array[Part], MultipartError]
 pub fn Parser::from_content_type(String, max_body_size? : Int) -> Result[Self, MultipartError]
 pub fn Parser::new(String, max_body_size? : Int) -> Self
-pub fn Parser::with_limits(String, max_body_size? : Int, max_part_count? : Int, max_header_size? : Int) -> Self
+pub fn Parser::with_limits(String, max_body_size? : Int, max_part_count? : Int, max_header_size? : Int, max_header_count? : Int) -> Self
 
 pub(all) struct Part {
   headers : Array[Header]
@@ -97,6 +99,7 @@ pub(all) struct StreamLimits {
   max_body_size : Int
   max_part_count : Int
   max_header_size : Int
+  max_header_count : Int
   max_part_size : Int
 }
 pub fn StreamLimits::default() -> Self

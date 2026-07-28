@@ -27,6 +27,7 @@ pub(all) suberror MultipartError {
   InvalidContentDisposition
   MissingFieldName
   HeaderTooLarge(Int)
+  HeaderCountExceeded(Int)
   PartCountExceeded(Int)
   PartTooLarge(Int)
   InvalidStreamEvent
@@ -44,6 +45,7 @@ pub(all) struct Parser {
   max_body_size : Int
   max_part_count : Int
   max_header_size : Int
+  max_header_count : Int
   mut buffer : String
   mut failed : MultipartError?
 }
@@ -60,6 +62,7 @@ pub fn Parser::new(
     max_body_size,
     max_part_count: 1_024,
     max_header_size: 16_384,
+    max_header_count: 128,
     buffer: "",
     failed: None,
   }
@@ -73,12 +76,14 @@ pub fn Parser::with_limits(
   max_body_size? : Int = 8_388_608,
   max_part_count? : Int = 1_024,
   max_header_size? : Int = 16_384,
+  max_header_count? : Int = 128,
 ) -> Parser {
   Parser::{
     boundary,
     max_body_size,
     max_part_count,
     max_header_size,
+    max_header_count,
     buffer: "",
     failed: None,
   }
@@ -151,6 +156,7 @@ pub fn Parser::finish(self : Parser) -> Result[Array[Part], MultipartError] {
         self.buffer,
         self.max_part_count,
         self.max_header_size,
+        self.max_header_count,
       )
   }
 }
@@ -230,6 +236,7 @@ fn parse_body(
   body : String,
   max_part_count : Int,
   max_header_size : Int,
+  max_header_count : Int,
 ) -> Result[Array[Part], MultipartError] {
   guard is_valid_boundary(boundary) else {
     return Err(MultipartError::InvalidBoundary)
@@ -252,7 +259,7 @@ fn parse_body(
       return Err(MultipartError::PartCountExceeded(max_part_count))
     }
     let header_text = remaining[:header_offset].to_owned()
-    let headers = match parse_headers(header_text) {
+    let headers = match parse_headers(header_text, max_header_count~) {
       Ok(parsed) => parsed
       Err(error) => return Err(error)
     }
@@ -331,9 +338,15 @@ fn find_delimiter(body : String, marker : String, start : Int) -> (Int, Int)? {
 }
 
 ///|
-fn parse_headers(text : String) -> Result[Array[Header], MultipartError] {
+fn parse_headers(
+  text : String,
+  max_header_count? : Int = 128,
+) -> Result[Array[Header], MultipartError] {
   let headers : Array[Header] = []
   for line in text.split("\r\n") {
+    if headers.length() >= max_header_count {
+      return Err(MultipartError::HeaderCountExceeded(max_header_count))
+    }
     let source = line.to_owned()
     guard source.split_once(":") is Some((name, value)) else {
       return Err(MultipartError::InvalidHeader(source))
