@@ -386,7 +386,7 @@ fn parse_headers(
       return Err(MultipartError::InvalidHeader(source))
     }
     let normalized_name = name.trim().to_owned()
-    guard normalized_name.length() > 0 else {
+    guard is_valid_header_name(normalized_name) else {
       return Err(MultipartError::InvalidHeader(source))
     }
     headers.push(Header::{
@@ -395,6 +395,37 @@ fn parse_headers(
     })
   }
   Ok(headers)
+}
+
+///|
+/// MIME field names use the HTTP token character set. Rejecting whitespace,
+/// controls, and separators prevents ambiguous downstream interpretation.
+fn is_valid_header_name(name : String) -> Bool {
+  guard !name.is_empty() else { return false }
+  for character in name {
+    let allowed = character.is_ascii_digit() ||
+      character.is_ascii_lowercase() ||
+      character.is_ascii_uppercase() ||
+      character == '!' ||
+      character == '#' ||
+      character == '$' ||
+      character == '%' ||
+      character == '&' ||
+      character == '\'' ||
+      character == '*' ||
+      character == '+' ||
+      character == '-' ||
+      character == '.' ||
+      character == '^' ||
+      character == '_' ||
+      character == '`' ||
+      character == '|' ||
+      character == '~'
+    if !allowed {
+      return false
+    }
+  }
+  true
 }
 
 ///|
@@ -441,6 +472,9 @@ fn find_parameter(value : String, parameter : String) -> String? {
     } else {
       segment.write_char(character)
     }
+  }
+  if quoted || escaped {
+    return None
   }
   parameter_from_segment(segment.to_string(), target)
 }

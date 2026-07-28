@@ -192,6 +192,27 @@ test "rejects parts without form-data disposition metadata" {
 }
 
 ///|
+test "rejects malformed header names and unterminated parameters" {
+  let invalid_name = "--syntax\r\n" +
+    "Bad Header: value\r\n" +
+    "Content-Disposition: form-data; name=\"x\"\r\n\r\n" +
+    "body\r\n--syntax--\r\n"
+  let parser = Parser::new("syntax")
+  assert_true(parser.feed(invalid_name) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::InvalidHeader(_)))
+  let unterminated = "--syntax\r\n" +
+    "Content-Disposition: form-data; name=\"unfinished\r\n\r\n" +
+    "body\r\n--syntax--\r\n"
+  let parser = Parser::new("syntax")
+  assert_true(parser.feed(unterminated) is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::MissingFieldName))
+  assert_true(
+    boundary_from_content_type("multipart/form-data; boundary=\"unfinished")
+    is Err(MultipartError::InvalidContentType),
+  )
+}
+
+///|
 test "enforces header and part count limits" {
   let source = sample_body()
   let parser = Parser::with_limits("MoonPartBoundary", max_header_size=8)
