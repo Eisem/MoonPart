@@ -95,6 +95,12 @@ Submitted filenames are untrusted input. `filename_basename` removes Unix and
 Windows directory components, but applications should still generate their own
 server-side storage paths rather than writing directly to a submitted name.
 
+For large uploads, use `StreamingFormCollector`. Its callback receives
+`FileSinkEvent::Begin`, incremental `Data(Bytes)` chunks, and `End`. The
+collector retains text fields and file metadata only; applications can forward
+file chunks directly to a filesystem, object store, hash function, or network
+sink without constructing the complete file in memory.
+
 ## Development
 
 ```sh

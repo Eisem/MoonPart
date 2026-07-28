@@ -574,3 +574,56 @@ test "streaming pipeline accepts every small chunk width" {
     assert_true(file.data == expected_file)
   }
 }
+
+///|
+test "sink collector streams file bytes without retaining them" {
+  let sink_events : Array[FileSinkEvent] = []
+  let sink = fn(event : FileSinkEvent) -> Result[Unit, MultipartError] {
+    sink_events.push(event)
+    Ok(())
+  }
+  let collector = StreamingFormCollector::new(sink, allowed_fields=[
+    "title", "asset",
+  ])
+  let parser = StreamingParser::new("sink")
+  let source = b"--sink\r\nContent-Disposition: form-data; name=\"title\"\r\n\r\nMoonBit\r\n--sink\r\nContent-Disposition: form-data; name=\"asset\"; filename=\"../raw.bin\"\r\nContent-Type: application/octet-stream\r\n\r\n\x00\xffpayload\r\n--sink--\r\n"
+  for split in [17, 83, source.length()] {
+    let start = if split == 17 { 0 } else if split == 83 { 17 } else { 83 }
+    guard parser.feed_bytes(source.view(start~, end=split).to_owned())
+      is Ok(events) else {
+      fail("stream should parse")
+    }
+    for event in events {
+      guard collector.push(event) is Ok(_) else { fail("sink should accept") }
+    }
+  }
+  assert_true(parser.finish() is Ok(_))
+  guard collector.finish() is Ok(form) else { fail("sink form should finish") }
+  assert_eq(form.fields.length(), 1)
+  assert_eq(form.fields[0].name, "title")
+  assert_eq(form.fields[0].value, "MoonBit")
+  assert_eq(form.files.length(), 1)
+  assert_eq(form.files[0].filename_basename(), "raw.bin")
+  assert_eq(sink_events.length(), 3)
+  assert_true(sink_events[0] is FileSinkEvent::Begin(_))
+  assert_true(sink_events[1] is FileSinkEvent::Data(b"\x00\xffpayload"))
+  assert_true(sink_events[2] is FileSinkEvent::End)
+}
+
+///|
+test "sink collector propagates application write failures" {
+  let sink = fn(_event : FileSinkEvent) -> Result[Unit, MultipartError] {
+    Err(MultipartError::SinkFailure("disk full"))
+  }
+  let collector = StreamingFormCollector::new(sink)
+  let headers = [
+    Header::{
+      name: "Content-Disposition",
+      value: "form-data; name=\"asset\"; filename=\"a.bin\"",
+    },
+  ]
+  assert_true(
+    collector.push(StreamEvent::PartBegin(headers))
+    is Err(MultipartError::SinkFailure("disk full")),
+  )
+}

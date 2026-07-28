@@ -36,11 +36,18 @@ pub(all) suberror MultipartError {
   FieldCountExceeded(Int)
   FileCountExceeded(Int)
   UnexpectedField(String)
+  SinkFailure(String)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(@debug.Debug)
 
 // Types and methods
+pub(all) enum FileSinkEvent {
+  Begin(StreamedFile)
+  Data(Bytes)
+  End
+} derive(@debug.Debug)
+
 pub(all) struct FormData {
   entries : Array[FormEntry]
 } derive(@debug.Debug)
@@ -134,6 +141,37 @@ pub(all) enum StreamState {
   ReadingBody
   Done
 } derive(@debug.Debug)
+
+pub(all) struct StreamedFile {
+  field_name : String
+  filename : String
+  content_type : String
+  headers : Array[Header]
+} derive(Eq, @debug.Debug)
+pub fn StreamedFile::filename_basename(Self) -> String
+
+pub(all) struct StreamedFormData {
+  fields : Array[TextField]
+  files : Array[StreamedFile]
+} derive(@debug.Debug)
+
+pub(all) struct StreamingFormCollector {
+  fields : Array[TextField]
+  files : Array[StreamedFile]
+  text_buffer : @buffer.Buffer
+  limits : FormDataLimits
+  allowed_fields : Array[String]
+  sink : (FileSinkEvent) -> Result[Unit, MultipartError]
+  mut current_headers : Array[Header]?
+  mut current_size : Int
+  mut current_is_file : Bool
+  mut field_count : Int
+  mut file_count : Int
+  mut finished : Bool
+}
+pub fn StreamingFormCollector::finish(Self) -> Result[StreamedFormData, MultipartError]
+pub fn StreamingFormCollector::new((FileSinkEvent) -> Result[Unit, MultipartError], limits? : FormDataLimits, allowed_fields? : Array[String]) -> Self
+pub fn StreamingFormCollector::push(Self, StreamEvent) -> Result[Unit, MultipartError]
 
 pub(all) struct StreamingParser {
   boundary : String

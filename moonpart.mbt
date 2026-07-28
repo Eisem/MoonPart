@@ -36,6 +36,7 @@ pub(all) suberror MultipartError {
   FieldCountExceeded(Int)
   FileCountExceeded(Int)
   UnexpectedField(String)
+  SinkFailure(String)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(Debug)
