@@ -905,4 +905,27 @@ test "streaming encoder rejects invalid boundaries, headers, and event order" {
     )
     is Ok(_),
   )
+  assert_true(
+    StreamingEncoder::from_content_type("text/plain")
+    is Err(MultipartError::InvalidContentType),
+  )
+  let missing_headers = StreamingEncoder::new("missing")
+  assert_true(
+    missing_headers.push(StreamEvent::PartBegin([]))
+    is Err(MultipartError::MissingContentDisposition),
+  )
+  let repeated_begin = StreamingEncoder::new("repeat")
+  let headers = [
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"field\"" },
+  ]
+  assert_true(repeated_begin.push(StreamEvent::PartBegin(headers)) is Ok(_))
+  assert_true(
+    repeated_begin.push(StreamEvent::PartBegin(headers))
+    is Err(MultipartError::InvalidStreamEvent),
+  )
+  let premature_end = StreamingEncoder::new("end")
+  assert_true(
+    premature_end.push(StreamEvent::PartEnd)
+    is Err(MultipartError::InvalidStreamEvent),
+  )
 }
