@@ -113,5 +113,9 @@ moon test
 moon check
 ```
 
+Continuous integration checks formatting and generated interfaces, then builds
+and tests the Wasm, Wasm-GC, JavaScript, and native backends. It also runs
+MoonBit's coverage analyzer on every push and pull request.
+
 The implementation is original and takes RFC 7578 and RFC 2046 as behavioral
 references. It is licensed under Apache-2.0.

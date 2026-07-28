@@ -1,0 +1,44 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  quality:
+    name: Format, build, test, and coverage
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up MoonBit
+        uses: hustcer/setup-moonbit@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Show toolchain
+        run: moon version --all
+
+      - name: Check formatting
+        run: moon fmt --check
+
+      - name: Verify generated interfaces
+        run: |
+          moon info
+          git diff --exit-code -- '*.mbti'
+
+      - name: Check every supported backend
+        run: moon check --target all
+
+      - name: Build every supported backend
+        run: moon build --target all
+
+      - name: Test every supported backend
+        run: moon test --target all
+
+      - name: Analyze coverage
+        run: moon coverage analyze
