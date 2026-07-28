@@ -232,3 +232,93 @@ pub fn StreamingFormCollector::finish(
       }
   }
 }
+
+///|
+/// End-to-end multipart/form-data decoder that connects StreamingParser to a
+/// StreamingFormCollector. File bytes go directly to the supplied sink.
+pub(all) struct StreamingFormDecoder {
+  parser : StreamingParser
+  collector : StreamingFormCollector
+}
+
+///|
+/// Creates a decoder from a raw multipart boundary.
+pub fn StreamingFormDecoder::new(
+  boundary : String,
+  sink : (FileSinkEvent) -> Result[Unit, MultipartError],
+  stream_limits? : StreamLimits = StreamLimits::default(),
+  form_limits? : FormDataLimits = FormDataLimits::default(),
+  allowed_fields? : Array[String] = [],
+) -> StreamingFormDecoder {
+  StreamingFormDecoder::{
+    parser: StreamingParser::with_limits(boundary, stream_limits),
+    collector: StreamingFormCollector::new(
+      sink,
+      limits=form_limits,
+      allowed_fields~,
+    ),
+  }
+}
+
+///|
+/// Creates a decoder directly from an HTTP Content-Type value.
+pub fn StreamingFormDecoder::from_content_type(
+  content_type : String,
+  sink : (FileSinkEvent) -> Result[Unit, MultipartError],
+  stream_limits? : StreamLimits = StreamLimits::default(),
+  form_limits? : FormDataLimits = FormDataLimits::default(),
+  allowed_fields? : Array[String] = [],
+) -> Result[StreamingFormDecoder, MultipartError] {
+  match boundary_from_content_type(content_type) {
+    Ok(boundary) =>
+      Ok(
+        StreamingFormDecoder::new(
+          boundary,
+          sink,
+          stream_limits~,
+          form_limits~,
+          allowed_fields~,
+        ),
+      )
+    Err(error) => Err(error)
+  }
+}
+
+///|
+/// Feeds an arbitrary network body chunk through the parser and file sink.
+pub fn StreamingFormDecoder::feed_bytes(
+  self : StreamingFormDecoder,
+  chunk : Bytes,
+) -> Result[Unit, MultipartError] {
+  match self.parser.feed_bytes(chunk) {
+    Err(error) => Err(error)
+    Ok(events) => {
+      for event in events {
+        match self.collector.push(event) {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
+      }
+      Ok(())
+    }
+  }
+}
+
+///|
+/// Validates the closing boundary and returns text fields plus file metadata.
+pub fn StreamingFormDecoder::finish(
+  self : StreamingFormDecoder,
+) -> Result[StreamedFormData, MultipartError] {
+  match self.parser.finish() {
+    Err(error) => Err(error)
+    Ok(events) => {
+      for event in events {
+        match self.collector.push(event) {
+          Ok(_) => ()
+          Err(error) => return Err(error)
+        }
+      }
+      self.collector.finish()
+    }
+  }
+}

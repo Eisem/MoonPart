@@ -174,6 +174,15 @@ pub fn StreamingFormCollector::finish(Self) -> Result[StreamedFormData, Multipar
 pub fn StreamingFormCollector::new((FileSinkEvent) -> Result[Unit, MultipartError], limits? : FormDataLimits, allowed_fields? : Array[String]) -> Self
 pub fn StreamingFormCollector::push(Self, StreamEvent) -> Result[Unit, MultipartError]
 
+pub(all) struct StreamingFormDecoder {
+  parser : StreamingParser
+  collector : StreamingFormCollector
+}
+pub fn StreamingFormDecoder::feed_bytes(Self, Bytes) -> Result[Unit, MultipartError]
+pub fn StreamingFormDecoder::finish(Self) -> Result[StreamedFormData, MultipartError]
+pub fn StreamingFormDecoder::from_content_type(String, (FileSinkEvent) -> Result[Unit, MultipartError], stream_limits? : StreamLimits, form_limits? : FormDataLimits, allowed_fields? : Array[String]) -> Result[Self, MultipartError]
+pub fn StreamingFormDecoder::new(String, (FileSinkEvent) -> Result[Unit, MultipartError], stream_limits? : StreamLimits, form_limits? : FormDataLimits, allowed_fields? : Array[String]) -> Self
+
 pub(all) struct StreamingParser {
   boundary : String
   opening : Bytes

@@ -101,6 +101,10 @@ collector retains text fields and file metadata only; applications can forward
 file chunks directly to a filesystem, object store, hash function, or network
 sink without constructing the complete file in memory.
 
+`StreamingFormDecoder` connects content-type boundary parsing, incremental body
+decoding, limits, field validation, and sink delivery behind one `feed_bytes`
+API for HTTP handlers.
+
 ## Development
 
 ```sh

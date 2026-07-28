@@ -634,3 +634,36 @@ test "sink collector propagates application write failures" {
     collector.finish() is Err(MultipartError::SinkFailure("disk full")),
   )
 }
+
+///|
+test "streaming form decoder connects content type parser and sink" {
+  let file_data = @buffer.Buffer()
+  let sink = fn(event : FileSinkEvent) -> Result[Unit, MultipartError] {
+    match event {
+      Data(data) => file_data.write_bytes(data[:])
+      _ => ()
+    }
+    Ok(())
+  }
+  guard StreamingFormDecoder::from_content_type(
+      "multipart/form-data; boundary=decoder",
+      sink,
+      allowed_fields=["note", "file"],
+    )
+    is Ok(decoder) else {
+    fail("content type should create a decoder")
+  }
+  let chunks = [
+    b"--decoder\r\nContent-Disposition: form-data; name=\"note\"\r\n\r\nhello\r\n--dec",
+    b"oder\r\nContent-Disposition: form-data; name=\"file\"; filename=\"a.bin\"\r\n\r\n\x00",
+    b"\xff\r\n--decoder--\r\n",
+  ]
+  for chunk in chunks {
+    assert_true(decoder.feed_bytes(chunk) is Ok(_))
+  }
+  guard decoder.finish() is Ok(form) else { fail("decoder should finish") }
+  assert_eq(form.fields.length(), 1)
+  assert_eq(form.fields[0].value, "hello")
+  assert_eq(form.files.length(), 1)
+  assert_true(file_data.to_bytes() == b"\x00\xff")
+}
