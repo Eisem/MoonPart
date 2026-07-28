@@ -444,3 +444,21 @@ test "collector applies separate field and file limits" {
     is Err(MultipartError::FileCountExceeded(0)),
   )
 }
+
+///|
+test "collector rejects unexpected field names before body data" {
+  let collector = FormDataCollector::with_allowed_fields(["title", "asset"])
+  let title_headers = [
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"" },
+  ]
+  assert_true(collector.push(StreamEvent::PartBegin(title_headers)) is Ok(_))
+  assert_true(collector.push(StreamEvent::PartData(b"MoonBit")) is Ok(_))
+  assert_true(collector.push(StreamEvent::PartEnd) is Ok(_))
+  let unknown_headers = [
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"admin\"" },
+  ]
+  assert_true(
+    collector.push(StreamEvent::PartBegin(unknown_headers))
+    is Err(MultipartError::UnexpectedField("admin")),
+  )
+}

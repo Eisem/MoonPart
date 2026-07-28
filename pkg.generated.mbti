@@ -33,6 +33,7 @@ pub(all) suberror MultipartError {
   FileTooLarge(Int)
   FieldCountExceeded(Int)
   FileCountExceeded(Int)
+  UnexpectedField(String)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(@debug.Debug)
@@ -50,6 +51,7 @@ pub(all) struct FormDataCollector {
   entries : Array[FormEntry]
   buffer : @buffer.Buffer
   limits : FormDataLimits
+  allowed_fields : Array[String]?
   mut current_headers : Array[Header]?
   mut current_size : Int
   mut field_count : Int
@@ -59,6 +61,7 @@ pub(all) struct FormDataCollector {
 pub fn FormDataCollector::finish(Self) -> Result[FormData, MultipartError]
 pub fn FormDataCollector::new() -> Self
 pub fn FormDataCollector::push(Self, StreamEvent) -> Result[Unit, MultipartError]
+pub fn FormDataCollector::with_allowed_fields(Array[String], limits? : FormDataLimits) -> Self
 pub fn FormDataCollector::with_file_size_limit(Int) -> Self
 pub fn FormDataCollector::with_limits(FormDataLimits) -> Self
 

@@ -105,6 +105,7 @@ pub(all) struct FormDataCollector {
   entries : Array[FormEntry]
   buffer : @buffer.Buffer
   limits : FormDataLimits
+  allowed_fields : Array[String]?
   mut current_headers : Array[Header]?
   mut current_size : Int
   mut field_count : Int
@@ -118,6 +119,7 @@ pub fn FormDataCollector::new() -> FormDataCollector {
     entries: [],
     buffer: @buffer.Buffer(),
     limits: FormDataLimits::default(),
+    allowed_fields: None,
     current_headers: None,
     current_size: 0,
     field_count: 0,
@@ -136,6 +138,7 @@ pub fn FormDataCollector::with_file_size_limit(
     entries: [],
     buffer: @buffer.Buffer(),
     limits: FormDataLimits::{ ..limits, max_file_size, },
+    allowed_fields: None,
     current_headers: None,
     current_size: 0,
     field_count: 0,
@@ -153,6 +156,27 @@ pub fn FormDataCollector::with_limits(
     entries: [],
     buffer: @buffer.Buffer(),
     limits,
+    allowed_fields: None,
+    current_headers: None,
+    current_size: 0,
+    field_count: 0,
+    file_count: 0,
+    finished: false,
+  }
+}
+
+///|
+/// Creates a collector that rejects any part whose form field name is not in
+/// `allowed_fields`. Repeated occurrences of an allowed name remain valid.
+pub fn FormDataCollector::with_allowed_fields(
+  allowed_fields : Array[String],
+  limits? : FormDataLimits = FormDataLimits::default(),
+) -> FormDataCollector {
+  FormDataCollector::{
+    entries: [],
+    buffer: @buffer.Buffer(),
+    limits,
+    allowed_fields: Some(allowed_fields),
     current_headers: None,
     current_size: 0,
     field_count: 0,
@@ -181,6 +205,16 @@ pub fn FormDataCollector::push(
       }
       guard find_header(headers, "content-disposition") is Some(disposition) else {
         return Err(MultipartError::MissingContentDisposition)
+      }
+      guard find_parameter(disposition, "name") is Some(name) else {
+        return Err(MultipartError::MissingFieldName)
+      }
+      match self.allowed_fields {
+        Some(allowed) =>
+          if !contains_string(allowed, name) {
+            return Err(MultipartError::UnexpectedField(name))
+          }
+        None => ()
       }
       if find_parameter(disposition, "filename") is Some(_) {
         if self.file_count >= self.limits.max_file_count {
@@ -265,6 +299,16 @@ pub fn FormDataCollector::push(
       Ok(())
     }
   }
+}
+
+///|
+fn contains_string(values : Array[String], expected : String) -> Bool {
+  for value in values {
+    if value == expected {
+      return true
+    }
+  }
+  false
 }
 
 ///|

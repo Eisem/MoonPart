@@ -35,6 +35,7 @@ pub(all) suberror MultipartError {
   FileTooLarge(Int)
   FieldCountExceeded(Int)
   FileCountExceeded(Int)
+  UnexpectedField(String)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(Debug)
