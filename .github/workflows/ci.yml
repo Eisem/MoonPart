@@ -19,6 +19,7 @@ jobs:
         uses: hustcer/setup-moonbit@v1.22
         with:
           version: 0.10.0+e66899a54
+          core-version: 0.10.0+e66899a54
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
