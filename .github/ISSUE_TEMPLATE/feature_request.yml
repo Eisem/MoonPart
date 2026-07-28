@@ -1,0 +1,26 @@
+name: Feature request
+description: Propose a focused addition to MoonPart
+title: "[Feature]: "
+labels:
+  - enhancement
+body:
+  - type: textarea
+    id: use_case
+    attributes:
+      label: Use case
+      description: Describe the concrete multipart integration that needs this feature.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed API or behavior
+    validations:
+      required: true
+  - type: textarea
+    id: boundaries
+    attributes:
+      label: Scope, compatibility, and security impact
+      description: Explain how this fits MoonPart's documented non-goals.
+    validations:
+      required: true

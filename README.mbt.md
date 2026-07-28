@@ -1,7 +1,21 @@
 # MoonPart
 
+[![CI](https://github.com/Eisem/MoonPart/actions/workflows/ci.yml/badge.svg)](https://github.com/Eisem/MoonPart/actions/workflows/ci.yml)
+[![License](https://img.shields.io/badge/license-Apache--2.0-blue.svg)](LICENSE)
+
 MoonPart is a pure MoonBit multipart/form-data core library. It implements a
 small, strict RFC 7578-oriented parser and encoder for HTTP form bodies.
+
+## Installation
+
+After the `0.1.0` release is published to mooncakes.io:
+
+```sh
+moon add eisem/moonpart@0.1.0
+```
+
+Before publication, clone this repository and run the example and tests from
+the repository root.
 
 ## Current status
 
@@ -108,24 +122,61 @@ API for HTTP handlers.
 Use `FieldSizeLimit` when a specific field needs a stricter cap than the global
 text or file limit, for example a short `title` alongside a larger `asset`.
 
+## Choosing an API
+
+| Use case | API | Body storage |
+| --- | --- | --- |
+| Small text-oriented forms | `Parser` | Complete body as `String` |
+| Binary body decoded at once | `decode_bytes` | Events contain raw `Bytes` |
+| Incremental protocol parsing | `StreamingParser` | Possible-boundary suffix only |
+| Small forms collected in memory | `FormDataCollector` | Text and file bodies |
+| Large files sent to a sink | `StreamingFormDecoder` | Text fields and file metadata |
+
 Run the complete streaming example with:
 
 ```sh
 moon run cmd/main
 ```
 
+## Scope and non-goals
+
+MoonPart owns multipart/form-data boundary parsing, strict part-header parsing,
+encoding, resource limits, form collection, and sink-oriented file delivery.
+It deliberately does not provide an HTTP server/client, asynchronous filesystem
+I/O, temporary-file management, MIME sniffing, antivirus scanning, or trusted
+storage paths. Integrations should supply request chunks and decide how emitted
+file bytes are persisted.
+
+The current release targets RFC 7578 form-data behavior. It is not a general
+recursive MIME message parser and does not decode content-transfer encodings.
+
+## Security
+
+All limits should be selected for the surrounding HTTP service. Submitted
+filenames, media types, headers, and text values remain untrusted. See
+[SECURITY.md](SECURITY.md) for the supported security model and vulnerability
+reporting process.
+
 ## Development
 
 ```sh
 moon fmt
-moon test
-moon check
+moon info
+moon check --target all
+moon build --target all
+moon test --target all
+moon coverage analyze
 moon bench --target native
+moon run cmd/main
 ```
 
 Continuous integration checks formatting and generated interfaces, then builds
 and tests the Wasm, Wasm-GC, JavaScript, and native backends. It also runs
 MoonBit's coverage analyzer on every push and pull request.
+
+The implementation design is documented in [docs/DESIGN.md](docs/DESIGN.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the change workflow and
+[CHANGELOG.md](CHANGELOG.md) for release notes.
 
 The implementation is original and takes RFC 7578 and RFC 2046 as behavioral
 references. It is licensed under Apache-2.0.

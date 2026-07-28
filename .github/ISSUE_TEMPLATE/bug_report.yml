@@ -1,0 +1,31 @@
+name: Bug report
+description: Report reproducible incorrect multipart behavior
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Minimal reproduction
+      description: Include the multipart input, chunking pattern, limits, and API used.
+    validations:
+      required: true
+  - type: input
+    id: toolchain
+    attributes:
+      label: MoonBit toolchain and target
+      placeholder: moon version --all; native/js/wasm/wasm-gc
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Additional context
