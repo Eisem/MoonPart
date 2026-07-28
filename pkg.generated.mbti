@@ -23,6 +23,7 @@ pub(all) suberror MultipartError {
   MissingOpeningBoundary
   MissingHeaderTerminator
   InvalidHeader(String)
+  DuplicateHeader(String)
   MissingContentDisposition
   InvalidContentDisposition
   MissingFieldName

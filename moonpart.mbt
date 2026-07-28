@@ -23,6 +23,7 @@ pub(all) suberror MultipartError {
   MissingOpeningBoundary
   MissingHeaderTerminator
   InvalidHeader(String)
+  DuplicateHeader(String)
   MissingContentDisposition
   InvalidContentDisposition
   MissingFieldName
@@ -389,10 +390,11 @@ fn parse_headers(
     guard is_valid_header_name(normalized_name) else {
       return Err(MultipartError::InvalidHeader(source))
     }
-    headers.push(Header::{
-      name: normalized_name,
-      value: value.trim().to_owned(),
-    })
+    let normalized_value = value.trim().to_owned()
+    guard is_valid_header_value(normalized_value) else {
+      return Err(MultipartError::InvalidHeader(source))
+    }
+    headers.push(Header::{ name: normalized_name, value: normalized_value })
   }
   Ok(headers)
 }
@@ -429,9 +431,28 @@ fn is_valid_header_name(name : String) -> Bool {
 }
 
 ///|
+fn is_valid_header_value(value : String) -> Bool {
+  for character in value {
+    if character.is_control() && character != '\t' {
+      return false
+    }
+  }
+  true
+}
+
+///|
 fn validate_form_data_headers(
   headers : Array[Header],
 ) -> Result[Unit, MultipartError] {
+  let mut disposition_count = 0
+  for header in headers {
+    if header.name.to_lower() == "content-disposition" {
+      disposition_count = disposition_count + 1
+    }
+  }
+  if disposition_count > 1 {
+    return Err(MultipartError::DuplicateHeader("Content-Disposition"))
+  }
   guard find_header(headers, "content-disposition") is Some(disposition) else {
     return Err(MultipartError::MissingContentDisposition)
   }

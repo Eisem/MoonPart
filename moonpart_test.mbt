@@ -241,6 +241,28 @@ test "rejects malformed header names and unterminated parameters" {
 }
 
 ///|
+test "rejects duplicate disposition and control characters in headers" {
+  let duplicate = "--headers\r\n" +
+    "Content-Disposition: form-data; name=\"first\"\r\n" +
+    "Content-Disposition: form-data; name=\"second\"\r\n\r\n" +
+    "body\r\n--headers--\r\n"
+  let parser = Parser::new("headers")
+  assert_true(parser.feed(duplicate) is Ok(_))
+  assert_true(
+    parser.finish()
+    is Err(MultipartError::DuplicateHeader("Content-Disposition")),
+  )
+  let bare_newline = "--headers\r\n" +
+    "Content-Disposition: form-data; name=\"first\"\nInjected: value\r\n\r\n" +
+    "body\r\n--headers--\r\n"
+  let parser = StreamingParser::new("headers")
+  assert_true(
+    parser.feed_bytes(@utf8.encode(bare_newline))
+    is Err(MultipartError::InvalidHeader(_)),
+  )
+}
+
+///|
 test "enforces header and part count limits" {
   let source = sample_body()
   let parser = Parser::with_limits("MoonPartBoundary", max_header_size=8)
