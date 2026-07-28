@@ -575,6 +575,43 @@ test "collector applies separate field and file limits" {
 }
 
 ///|
+test "collectors apply stricter named field size limits" {
+  let limits = FormDataLimits::{
+    max_field_size: 100,
+    max_file_size: 100,
+    max_field_count: 10,
+    max_file_count: 10,
+  }
+  let named = [FieldSizeLimit::{ name: "title", max_size: 2 }]
+  let collector = FormDataCollector::with_field_size_limits(limits, named)
+  let headers = [
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"" },
+  ]
+  assert_true(collector.push(StreamEvent::PartBegin(headers)) is Ok(_))
+  assert_true(
+    collector.push(StreamEvent::PartData(b"abc"))
+    is Err(MultipartError::FieldTooLarge(2)),
+  )
+  let sink = fn(_event : FileSinkEvent) -> Result[Unit, MultipartError] {
+    Ok(())
+  }
+  let streamed = StreamingFormCollector::new(sink, limits~, field_size_limits=[
+    FieldSizeLimit::{ name: "asset", max_size: 1 },
+  ])
+  let file_headers = [
+    Header::{
+      name: "Content-Disposition",
+      value: "form-data; name=\"asset\"; filename=\"a.bin\"",
+    },
+  ]
+  assert_true(streamed.push(StreamEvent::PartBegin(file_headers)) is Ok(_))
+  assert_true(
+    streamed.push(StreamEvent::PartData(b"12"))
+    is Err(MultipartError::FileTooLarge(1)),
+  )
+}
+
+///|
 test "collector rejects unexpected field names before body data" {
   let collector = FormDataCollector::with_allowed_fields(["title", "asset"])
   let title_headers = [

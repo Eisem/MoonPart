@@ -106,6 +106,14 @@ pub fn FormDataLimits::default() -> FormDataLimits {
 }
 
 ///|
+/// A size override for one named form field. It applies to both text and file
+/// parts and can only make the corresponding global limit stricter.
+pub(all) struct FieldSizeLimit {
+  name : String
+  max_size : Int
+} derive(Debug, Eq)
+
+///|
 /// Event consumer that builds an in-memory FormData value from a
 /// StreamingParser. Use a future sink-based collector for very large files.
 pub(all) struct FormDataCollector {
@@ -113,6 +121,7 @@ pub(all) struct FormDataCollector {
   buffer : @buffer.Buffer
   limits : FormDataLimits
   allowed_fields : Array[String]?
+  field_size_limits : Array[FieldSizeLimit]
   mut current_headers : Array[Header]?
   mut current_size : Int
   mut field_count : Int
@@ -127,6 +136,7 @@ pub fn FormDataCollector::new() -> FormDataCollector {
     buffer: @buffer.Buffer(),
     limits: FormDataLimits::default(),
     allowed_fields: None,
+    field_size_limits: [],
     current_headers: None,
     current_size: 0,
     field_count: 0,
@@ -146,6 +156,7 @@ pub fn FormDataCollector::with_file_size_limit(
     buffer: @buffer.Buffer(),
     limits: FormDataLimits::{ ..limits, max_file_size, },
     allowed_fields: None,
+    field_size_limits: [],
     current_headers: None,
     current_size: 0,
     field_count: 0,
@@ -164,6 +175,7 @@ pub fn FormDataCollector::with_limits(
     buffer: @buffer.Buffer(),
     limits,
     allowed_fields: None,
+    field_size_limits: [],
     current_headers: None,
     current_size: 0,
     field_count: 0,
@@ -184,6 +196,27 @@ pub fn FormDataCollector::with_allowed_fields(
     buffer: @buffer.Buffer(),
     limits,
     allowed_fields: Some(allowed_fields),
+    field_size_limits: [],
+    current_headers: None,
+    current_size: 0,
+    field_count: 0,
+    file_count: 0,
+    finished: false,
+  }
+}
+
+///|
+/// Creates a collector with global limits plus stricter per-field size limits.
+pub fn FormDataCollector::with_field_size_limits(
+  limits : FormDataLimits,
+  field_size_limits : Array[FieldSizeLimit],
+) -> FormDataCollector {
+  FormDataCollector::{
+    entries: [],
+    buffer: @buffer.Buffer(),
+    limits,
+    allowed_fields: None,
+    field_size_limits,
     current_headers: None,
     current_size: 0,
     field_count: 0,
@@ -247,12 +280,27 @@ pub fn FormDataCollector::push(
       guard find_header(headers, "content-disposition") is Some(disposition) else {
         return Err(MultipartError::MissingContentDisposition)
       }
+      guard find_parameter(disposition, "name") is Some(name) else {
+        return Err(MultipartError::MissingFieldName)
+      }
       if find_parameter(disposition, "filename") is Some(_) {
-        if next_size > self.limits.max_file_size {
-          return Err(MultipartError::FileTooLarge(self.limits.max_file_size))
+        let limit = effective_field_size_limit(
+          name,
+          self.limits.max_file_size,
+          self.field_size_limits,
+        )
+        if next_size > limit {
+          return Err(MultipartError::FileTooLarge(limit))
         }
-      } else if next_size > self.limits.max_field_size {
-        return Err(MultipartError::FieldTooLarge(self.limits.max_field_size))
+      } else {
+        let limit = effective_field_size_limit(
+          name,
+          self.limits.max_field_size,
+          self.field_size_limits,
+        )
+        if next_size > limit {
+          return Err(MultipartError::FieldTooLarge(limit))
+        }
       }
       self.buffer.write_bytes(data[:])
       self.current_size = next_size
@@ -316,6 +364,21 @@ fn contains_string(values : Array[String], expected : String) -> Bool {
     }
   }
   false
+}
+
+///|
+fn effective_field_size_limit(
+  name : String,
+  global_limit : Int,
+  limits : Array[FieldSizeLimit],
+) -> Int {
+  let mut effective = global_limit
+  for limit in limits {
+    if limit.name == name && limit.max_size < effective {
+      effective = limit.max_size
+    }
+  }
+  effective
 }
 
 ///|

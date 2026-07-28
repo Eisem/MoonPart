@@ -105,6 +105,9 @@ sink without constructing the complete file in memory.
 decoding, limits, field validation, and sink delivery behind one `feed_bytes`
 API for HTTP handlers.
 
+Use `FieldSizeLimit` when a specific field needs a stricter cap than the global
+text or file limit, for example a short `title` alongside a larger `asset`.
+
 Run the complete streaming example with:
 
 ```sh

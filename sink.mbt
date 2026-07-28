@@ -41,6 +41,7 @@ pub(all) struct StreamingFormCollector {
   text_buffer : @buffer.Buffer
   limits : FormDataLimits
   allowed_fields : Array[String]
+  field_size_limits : Array[FieldSizeLimit]
   sink : (FileSinkEvent) -> Result[Unit, MultipartError]
   mut current_headers : Array[Header]?
   mut current_size : Int
@@ -56,6 +57,7 @@ pub fn StreamingFormCollector::new(
   sink : (FileSinkEvent) -> Result[Unit, MultipartError],
   limits? : FormDataLimits = FormDataLimits::default(),
   allowed_fields? : Array[String] = [],
+  field_size_limits? : Array[FieldSizeLimit] = [],
 ) -> StreamingFormCollector {
   StreamingFormCollector::{
     fields: [],
@@ -63,6 +65,7 @@ pub fn StreamingFormCollector::new(
     text_buffer: @buffer.Buffer(),
     limits,
     allowed_fields,
+    field_size_limits,
     sink,
     current_headers: None,
     current_size: 0,
@@ -163,17 +166,36 @@ fn StreamingFormCollector::push_event(
         return Err(MultipartError::InvalidStreamEvent)
       }
       let next_size = self.current_size + data.length()
+      guard self.current_headers is Some(headers) else {
+        return Err(MultipartError::InvalidStreamEvent)
+      }
+      guard find_header(headers, "content-disposition") is Some(disposition) else {
+        return Err(MultipartError::MissingContentDisposition)
+      }
+      guard find_parameter(disposition, "name") is Some(name) else {
+        return Err(MultipartError::MissingFieldName)
+      }
       if self.current_is_file {
-        if next_size > self.limits.max_file_size {
-          return Err(MultipartError::FileTooLarge(self.limits.max_file_size))
+        let limit = effective_field_size_limit(
+          name,
+          self.limits.max_file_size,
+          self.field_size_limits,
+        )
+        if next_size > limit {
+          return Err(MultipartError::FileTooLarge(limit))
         }
         match (self.sink)(FileSinkEvent::Data(data)) {
           Ok(_) => ()
           Err(error) => return Err(error)
         }
       } else {
-        if next_size > self.limits.max_field_size {
-          return Err(MultipartError::FieldTooLarge(self.limits.max_field_size))
+        let limit = effective_field_size_limit(
+          name,
+          self.limits.max_field_size,
+          self.field_size_limits,
+        )
+        if next_size > limit {
+          return Err(MultipartError::FieldTooLarge(limit))
         }
         self.text_buffer.write_bytes(data[:])
       }
@@ -250,6 +272,7 @@ pub fn StreamingFormDecoder::new(
   stream_limits? : StreamLimits = StreamLimits::default(),
   form_limits? : FormDataLimits = FormDataLimits::default(),
   allowed_fields? : Array[String] = [],
+  field_size_limits? : Array[FieldSizeLimit] = [],
 ) -> StreamingFormDecoder {
   StreamingFormDecoder::{
     parser: StreamingParser::with_limits(boundary, stream_limits),
@@ -257,6 +280,7 @@ pub fn StreamingFormDecoder::new(
       sink,
       limits=form_limits,
       allowed_fields~,
+      field_size_limits~,
     ),
     failed: None,
   }
@@ -270,6 +294,7 @@ pub fn StreamingFormDecoder::from_content_type(
   stream_limits? : StreamLimits = StreamLimits::default(),
   form_limits? : FormDataLimits = FormDataLimits::default(),
   allowed_fields? : Array[String] = [],
+  field_size_limits? : Array[FieldSizeLimit] = [],
 ) -> Result[StreamingFormDecoder, MultipartError] {
   match boundary_from_content_type(content_type) {
     Ok(boundary) =>
@@ -280,6 +305,7 @@ pub fn StreamingFormDecoder::from_content_type(
           stream_limits~,
           form_limits~,
           allowed_fields~,
+          field_size_limits~,
         ),
       )
     Err(error) => Err(error)

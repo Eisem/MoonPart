@@ -43,6 +43,11 @@ pub(all) suberror MultipartError {
 } derive(@debug.Debug)
 
 // Types and methods
+pub(all) struct FieldSizeLimit {
+  name : String
+  max_size : Int
+} derive(Eq, @debug.Debug)
+
 pub(all) enum FileSinkEvent {
   Begin(StreamedFile)
   Data(Bytes)
@@ -62,6 +67,7 @@ pub(all) struct FormDataCollector {
   buffer : @buffer.Buffer
   limits : FormDataLimits
   allowed_fields : Array[String]?
+  field_size_limits : Array[FieldSizeLimit]
   mut current_headers : Array[Header]?
   mut current_size : Int
   mut field_count : Int
@@ -72,6 +78,7 @@ pub fn FormDataCollector::finish(Self) -> Result[FormData, MultipartError]
 pub fn FormDataCollector::new() -> Self
 pub fn FormDataCollector::push(Self, StreamEvent) -> Result[Unit, MultipartError]
 pub fn FormDataCollector::with_allowed_fields(Array[String], limits? : FormDataLimits) -> Self
+pub fn FormDataCollector::with_field_size_limits(FormDataLimits, Array[FieldSizeLimit]) -> Self
 pub fn FormDataCollector::with_file_size_limit(Int) -> Self
 pub fn FormDataCollector::with_limits(FormDataLimits) -> Self
 
@@ -162,6 +169,7 @@ pub(all) struct StreamingFormCollector {
   text_buffer : @buffer.Buffer
   limits : FormDataLimits
   allowed_fields : Array[String]
+  field_size_limits : Array[FieldSizeLimit]
   sink : (FileSinkEvent) -> Result[Unit, MultipartError]
   mut current_headers : Array[Header]?
   mut current_size : Int
@@ -172,7 +180,7 @@ pub(all) struct StreamingFormCollector {
   mut failed : MultipartError?
 }
 pub fn StreamingFormCollector::finish(Self) -> Result[StreamedFormData, MultipartError]
-pub fn StreamingFormCollector::new((FileSinkEvent) -> Result[Unit, MultipartError], limits? : FormDataLimits, allowed_fields? : Array[String]) -> Self
+pub fn StreamingFormCollector::new((FileSinkEvent) -> Result[Unit, MultipartError], limits? : FormDataLimits, allowed_fields? : Array[String], field_size_limits? : Array[FieldSizeLimit]) -> Self
 pub fn StreamingFormCollector::push(Self, StreamEvent) -> Result[Unit, MultipartError]
 
 pub(all) struct StreamingFormDecoder {
@@ -182,8 +190,8 @@ pub(all) struct StreamingFormDecoder {
 }
 pub fn StreamingFormDecoder::feed_bytes(Self, Bytes) -> Result[Unit, MultipartError]
 pub fn StreamingFormDecoder::finish(Self) -> Result[StreamedFormData, MultipartError]
-pub fn StreamingFormDecoder::from_content_type(String, (FileSinkEvent) -> Result[Unit, MultipartError], stream_limits? : StreamLimits, form_limits? : FormDataLimits, allowed_fields? : Array[String]) -> Result[Self, MultipartError]
-pub fn StreamingFormDecoder::new(String, (FileSinkEvent) -> Result[Unit, MultipartError], stream_limits? : StreamLimits, form_limits? : FormDataLimits, allowed_fields? : Array[String]) -> Self
+pub fn StreamingFormDecoder::from_content_type(String, (FileSinkEvent) -> Result[Unit, MultipartError], stream_limits? : StreamLimits, form_limits? : FormDataLimits, allowed_fields? : Array[String], field_size_limits? : Array[FieldSizeLimit]) -> Result[Self, MultipartError]
+pub fn StreamingFormDecoder::new(String, (FileSinkEvent) -> Result[Unit, MultipartError], stream_limits? : StreamLimits, form_limits? : FormDataLimits, allowed_fields? : Array[String], field_size_limits? : Array[FieldSizeLimit]) -> Self
 
 pub(all) struct StreamingParser {
   boundary : String
