@@ -29,7 +29,10 @@ pub(all) suberror MultipartError {
   PartCountExceeded(Int)
   PartTooLarge(Int)
   InvalidStreamEvent
+  FieldTooLarge(Int)
   FileTooLarge(Int)
+  FieldCountExceeded(Int)
+  FileCountExceeded(Int)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(@debug.Debug)
@@ -42,15 +45,26 @@ pub(all) struct FormData {
 pub(all) struct FormDataCollector {
   entries : Array[FormEntry]
   buffer : @buffer.Buffer
-  max_file_size : Int
+  limits : FormDataLimits
   mut current_headers : Array[Header]?
   mut current_size : Int
+  mut field_count : Int
+  mut file_count : Int
   mut finished : Bool
 }
 pub fn FormDataCollector::finish(Self) -> Result[FormData, MultipartError]
 pub fn FormDataCollector::new() -> Self
 pub fn FormDataCollector::push(Self, StreamEvent) -> Result[Unit, MultipartError]
 pub fn FormDataCollector::with_file_size_limit(Int) -> Self
+pub fn FormDataCollector::with_limits(FormDataLimits) -> Self
+
+pub(all) struct FormDataLimits {
+  max_field_size : Int
+  max_file_size : Int
+  max_field_count : Int
+  max_file_count : Int
+}
+pub fn FormDataLimits::default() -> Self
 
 pub(all) enum FormEntry {
   Text(TextField)

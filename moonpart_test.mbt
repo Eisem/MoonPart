@@ -386,11 +386,52 @@ test "collects ordered text and file form entries from streaming events" {
 test "collector rejects a part that exceeds its memory limit" {
   let collector = FormDataCollector::with_file_size_limit(2)
   let headers = [
-    Header::{ name: "Content-Disposition", value: "form-data; name=\"file\"" },
+    Header::{
+      name: "Content-Disposition",
+      value: "form-data; name=\"file\"; filename=\"large.bin\"",
+    },
   ]
   assert_true(collector.push(StreamEvent::PartBegin(headers)) is Ok(_))
   assert_true(
     collector.push(StreamEvent::PartData(b"123"))
     is Err(MultipartError::FileTooLarge(2)),
+  )
+}
+
+///|
+test "collector applies separate field and file limits" {
+  let collector = FormDataCollector::with_limits(FormDataLimits::{
+    max_field_size: 2,
+    max_file_size: 4,
+    max_field_count: 1,
+    max_file_count: 1,
+  })
+  let field_headers = [
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"" },
+  ]
+  assert_true(collector.push(StreamEvent::PartBegin(field_headers)) is Ok(_))
+  assert_true(
+    collector.push(StreamEvent::PartData(b"abc"))
+    is Err(MultipartError::FieldTooLarge(2)),
+  )
+  let count_collector = FormDataCollector::with_limits(FormDataLimits::{
+    max_field_size: 8,
+    max_file_size: 8,
+    max_field_count: 0,
+    max_file_count: 0,
+  })
+  assert_true(
+    count_collector.push(StreamEvent::PartBegin(field_headers))
+    is Err(MultipartError::FieldCountExceeded(0)),
+  )
+  let file_headers = [
+    Header::{
+      name: "Content-Disposition",
+      value: "form-data; name=\"asset\"; filename=\"a.bin\"",
+    },
+  ]
+  assert_true(
+    count_collector.push(StreamEvent::PartBegin(file_headers))
+    is Err(MultipartError::FileCountExceeded(0)),
   )
 }

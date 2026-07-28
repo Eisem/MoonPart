@@ -28,14 +28,37 @@ pub(all) struct FormData {
 } derive(Debug)
 
 ///|
+/// Resource bounds for the in-memory form collector. Text and file limits are
+/// separate because applications commonly accept many small fields but only a
+/// small number of larger uploads.
+pub(all) struct FormDataLimits {
+  max_field_size : Int
+  max_file_size : Int
+  max_field_count : Int
+  max_file_count : Int
+}
+
+///|
+pub fn FormDataLimits::default() -> FormDataLimits {
+  FormDataLimits::{
+    max_field_size: 1_048_576,
+    max_file_size: 8_388_608,
+    max_field_count: 1_000,
+    max_file_count: 100,
+  }
+}
+
+///|
 /// Event consumer that builds an in-memory FormData value from a
 /// StreamingParser. Use a future sink-based collector for very large files.
 pub(all) struct FormDataCollector {
   entries : Array[FormEntry]
   buffer : @buffer.Buffer
-  max_file_size : Int
+  limits : FormDataLimits
   mut current_headers : Array[Header]?
   mut current_size : Int
+  mut field_count : Int
+  mut file_count : Int
   mut finished : Bool
 }
 
@@ -44,9 +67,11 @@ pub fn FormDataCollector::new() -> FormDataCollector {
   FormDataCollector::{
     entries: [],
     buffer: @buffer.Buffer(),
-    max_file_size: 8_388_608,
+    limits: FormDataLimits::default(),
     current_headers: None,
     current_size: 0,
+    field_count: 0,
+    file_count: 0,
     finished: false,
   }
 }
@@ -56,12 +81,32 @@ pub fn FormDataCollector::new() -> FormDataCollector {
 pub fn FormDataCollector::with_file_size_limit(
   max_file_size : Int,
 ) -> FormDataCollector {
+  let limits = FormDataLimits::default()
   FormDataCollector::{
     entries: [],
     buffer: @buffer.Buffer(),
-    max_file_size,
+    limits: FormDataLimits::{ ..limits, max_file_size, },
     current_headers: None,
     current_size: 0,
+    field_count: 0,
+    file_count: 0,
+    finished: false,
+  }
+}
+
+///|
+/// Creates an in-memory collector with separate text-field and file limits.
+pub fn FormDataCollector::with_limits(
+  limits : FormDataLimits,
+) -> FormDataCollector {
+  FormDataCollector::{
+    entries: [],
+    buffer: @buffer.Buffer(),
+    limits,
+    current_headers: None,
+    current_size: 0,
+    field_count: 0,
+    file_count: 0,
     finished: false,
   }
 }
@@ -80,18 +125,43 @@ pub fn FormDataCollector::push(
       guard self.current_headers is None else {
         return Err(MultipartError::InvalidStreamEvent)
       }
+      match validate_form_data_headers(headers) {
+        Ok(_) => ()
+        Err(error) => return Err(error)
+      }
+      guard find_header(headers, "content-disposition") is Some(disposition) else {
+        return Err(MultipartError::MissingContentDisposition)
+      }
+      if find_parameter(disposition, "filename") is Some(_) {
+        if self.file_count >= self.limits.max_file_count {
+          return Err(
+            MultipartError::FileCountExceeded(self.limits.max_file_count),
+          )
+        }
+      } else if self.field_count >= self.limits.max_field_count {
+        return Err(
+          MultipartError::FieldCountExceeded(self.limits.max_field_count),
+        )
+      }
       self.buffer.reset()
       self.current_size = 0
       self.current_headers = Some(headers)
       Ok(())
     }
     PartData(data) => {
-      guard self.current_headers is Some(_) else {
+      guard self.current_headers is Some(headers) else {
         return Err(MultipartError::InvalidStreamEvent)
       }
       let next_size = self.current_size + data.length()
-      if next_size > self.max_file_size {
-        return Err(MultipartError::FileTooLarge(self.max_file_size))
+      guard find_header(headers, "content-disposition") is Some(disposition) else {
+        return Err(MultipartError::MissingContentDisposition)
+      }
+      if find_parameter(disposition, "filename") is Some(_) {
+        if next_size > self.limits.max_file_size {
+          return Err(MultipartError::FileTooLarge(self.limits.max_file_size))
+        }
+      } else if next_size > self.limits.max_field_size {
+        return Err(MultipartError::FieldTooLarge(self.limits.max_field_size))
       }
       self.buffer.write_bytes(data[:])
       self.current_size = next_size
@@ -122,14 +192,17 @@ pub fn FormDataCollector::push(
               data,
             }),
           )
+          self.file_count = self.file_count + 1
         }
-        None =>
+        None => {
           self.entries.push(
             FormEntry::Text(TextField::{
               name,
               value: @utf8.decode_lossy(data[:]),
             }),
           )
+          self.field_count = self.field_count + 1
+        }
       }
       self.current_headers = None
       Ok(())

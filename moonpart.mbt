@@ -31,7 +31,10 @@ pub(all) suberror MultipartError {
   PartCountExceeded(Int)
   PartTooLarge(Int)
   InvalidStreamEvent
+  FieldTooLarge(Int)
   FileTooLarge(Int)
+  FieldCountExceeded(Int)
+  FileCountExceeded(Int)
   MissingClosingBoundary
   UnexpectedBoundary
 } derive(Debug)
