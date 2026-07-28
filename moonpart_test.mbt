@@ -329,11 +329,43 @@ test "streaming parser accepts content types and rejects trailing data" {
   assert_true(
     parser.feed_bytes(b"unexpected") is Err(MultipartError::UnexpectedBoundary),
   )
-  assert_true(parser.finish() is Ok(_))
+  assert_true(parser.finish() is Err(MultipartError::UnexpectedBoundary))
   assert_true(
     StreamingParser::from_content_type("application/json")
     is Err(MultipartError::InvalidContentType),
   )
+}
+
+///|
+test "streaming parser keeps failures terminal and reports truncation stage" {
+  let failed = StreamingParser::new("sticky")
+  assert_true(
+    failed.feed_bytes(b"not-a-boundary")
+    is Err(MultipartError::MissingOpeningBoundary),
+  )
+  assert_true(
+    failed.feed_bytes(
+      b"--sticky\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\nok\r\n--sticky--\r\n",
+    )
+    is Err(MultipartError::MissingOpeningBoundary),
+  )
+  assert_true(failed.finish() is Err(MultipartError::MissingOpeningBoundary))
+  let opening = StreamingParser::new("cut")
+  assert_true(opening.feed_bytes(b"--cu") is Ok(_))
+  assert_true(opening.finish() is Err(MultipartError::MissingOpeningBoundary))
+  let headers = StreamingParser::new("cut")
+  assert_true(
+    headers.feed_bytes(b"--cut\r\nContent-Disposition: form-data") is Ok(_),
+  )
+  assert_true(headers.finish() is Err(MultipartError::MissingHeaderTerminator))
+  let body = StreamingParser::new("cut")
+  assert_true(
+    body.feed_bytes(
+      b"--cut\r\nContent-Disposition: form-data; name=\"x\"\r\n\r\nvalue",
+    )
+    is Ok(_),
+  )
+  assert_true(body.finish() is Err(MultipartError::MissingClosingBoundary))
 }
 
 ///|

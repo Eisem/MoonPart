@@ -43,6 +43,7 @@ pub(all) struct StreamingParser {
   mut received_size : Int
   mut part_count : Int
   mut current_part_size : Int
+  mut failed : MultipartError?
 }
 
 ///|
@@ -67,6 +68,7 @@ pub fn StreamingParser::with_limits(
     received_size: 0,
     part_count: 0,
     current_part_size: 0,
+    failed: None,
   }
 }
 
@@ -89,12 +91,20 @@ pub fn StreamingParser::feed_bytes(
   self : StreamingParser,
   chunk : Bytes,
 ) -> Result[Array[StreamEvent], MultipartError] {
+  match self.failed {
+    Some(error) => return Err(error)
+    None => ()
+  }
   guard is_valid_boundary(self.boundary) else {
-    return Err(MultipartError::InvalidBoundary)
+    let error = MultipartError::InvalidBoundary
+    self.failed = Some(error)
+    return Err(error)
   }
   let next_size = self.received_size + chunk.length()
   if next_size > self.limits.max_body_size {
-    return Err(MultipartError::BodyTooLarge(self.limits.max_body_size))
+    let error = MultipartError::BodyTooLarge(self.limits.max_body_size)
+    self.failed = Some(error)
+    return Err(error)
   }
   self.received_size = next_size
   if self.state is Done {
@@ -103,10 +113,18 @@ pub fn StreamingParser::feed_bytes(
       self.pending = trailing
       return Ok([])
     }
-    return Err(MultipartError::UnexpectedBoundary)
+    let error = MultipartError::UnexpectedBoundary
+    self.failed = Some(error)
+    return Err(error)
   }
   self.pending = concat_bytes(self.pending, chunk)
-  self.drain([])
+  match self.drain([]) {
+    Ok(events) => Ok(events)
+    Err(error) => {
+      self.failed = Some(error)
+      Err(error)
+    }
+  }
 }
 
 ///|
@@ -114,14 +132,20 @@ pub fn StreamingParser::feed_bytes(
 pub fn StreamingParser::finish(
   self : StreamingParser,
 ) -> Result[Array[StreamEvent], MultipartError] {
-  match self.state {
-    Done =>
-      if self.pending.is_empty() || self.pending == b"\r\n" {
-        Ok([])
-      } else {
-        Err(MultipartError::UnexpectedBoundary)
+  match self.failed {
+    Some(error) => Err(error)
+    None =>
+      match self.state {
+        AwaitingOpening => Err(MultipartError::MissingOpeningBoundary)
+        AwaitingHeaders => Err(MultipartError::MissingHeaderTerminator)
+        ReadingBody => Err(MultipartError::MissingClosingBoundary)
+        Done =>
+          if self.pending.is_empty() || self.pending == b"\r\n" {
+            Ok([])
+          } else {
+            Err(MultipartError::UnexpectedBoundary)
+          }
       }
-    _ => Err(MultipartError::MissingClosingBoundary)
   }
 }
 

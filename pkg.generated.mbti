@@ -142,6 +142,7 @@ pub(all) struct StreamingParser {
   mut received_size : Int
   mut part_count : Int
   mut current_part_size : Int
+  mut failed : MultipartError?
 }
 pub fn StreamingParser::feed_bytes(Self, Bytes) -> Result[Array[StreamEvent], MultipartError]
 pub fn StreamingParser::finish(Self) -> Result[Array[StreamEvent], MultipartError]
