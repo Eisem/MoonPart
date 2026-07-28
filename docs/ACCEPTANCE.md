@@ -2,7 +2,7 @@
 
 Audit date: 2026-07-28  
 Audit guide: `moonbitlang/skills` — `moonbit-agent-guide`  
-Verified baseline: `7fba63f5bf29f7a5c0bdd800dbdb1ee66f88092a`
+Verified baseline: `6db403b94abd9c48b5a514e7ab50732d4f2a808f`
 
 ## Result
 
@@ -19,14 +19,14 @@ tagged GitHub release remain external completion steps.
 | Public repository | Pass | `https://github.com/Eisem/MoonPart`, default branch `master` |
 | Clear README and usage | Pass | Purpose, API selection, examples, limits, scope, security, and development commands are documented |
 | Runnable example | Pass | `moon run cmd/main` prints one decoded field and one streamed 9-byte file |
-| Continuous integration | Pass | GitHub Actions run `30339878798` passed on the verified baseline |
+| Continuous integration | Pass | GitHub Actions run `30339878798` passed; the verified local baseline reproduces the same workflow |
 | Build and checks | Pass | `moon check --target all` and `moon build --target all` |
-| Runnable tests | Pass | 35/35 tests pass on wasm, wasm-gc, JavaScript, and native |
+| Runnable tests | Pass | 36/36 tests pass on wasm, wasm-gc, JavaScript, and native |
 | Documentation tests | Pass | 3/3 `README.mbt.md` tests pass |
-| Coverage | Pass | 606/699 instrumented points (86.7%); 74 source points remain uncovered |
+| Coverage | Pass | 605/691 instrumented points (87.6%); 64 source lines remain uncovered |
 | Publishable package | Pass | `moon package --list` and `moon package` produce `eisem-moonpart-0.1.0.zip` |
 | Published to mooncakes.io | Pending | `eisem/moonpart` is not published as of the audit date |
-| Traceable development | Pass | 38 public commits were visible at audit time; changelog and contribution workflow are present |
+| Traceable development | Pass | 43 commits exist at the verified baseline; changelog and contribution workflow are present |
 | Functional boundary | Pass | `README.mbt.md` and `docs/DESIGN.md` define responsibilities and non-goals |
 | Open-source compliance | Pass | Apache-2.0 license; implementation is original; no third-party module dependency |
 | Gitlink synchronization | Pending | The local repository has only the GitHub `origin` remote |
@@ -54,7 +54,7 @@ before submission because the registry can change.
   possible-boundary suffix; file storage is delegated to application sinks.
 - Sink failure is terminal, and callers retain responsibility for cleaning up
   partial external writes.
-- The project contains 2,597 physical MoonBit lines and approximately 2,263
+- The project contains 2,682 physical MoonBit lines and approximately 2,325
   nonblank, non-comment lines. This is below the competition's 4–10k reference
   range, although that range is described as guidance rather than a repository
   acceptance requirement.
