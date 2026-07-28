@@ -43,9 +43,8 @@ pub struct StreamingFormCollector {
   allowed_fields : Array[String]
   field_size_limits : Array[FieldSizeLimit]
   sink : (FileSinkEvent) -> Result[Unit, MultipartError]
-  mut current_headers : Array[Header]?
+  mut current_part : FormPartMetadata?
   mut current_size : Int
-  mut current_is_file : Bool
   mut field_count : Int
   mut file_count : Int
   mut finished : Bool
@@ -67,9 +66,8 @@ pub fn StreamingFormCollector::new(
     allowed_fields,
     field_size_limits,
     sink,
-    current_headers: None,
+    current_part: None,
     current_size: 0,
-    current_is_file: false,
     field_count: 0,
     file_count: 0,
     finished: false,
@@ -106,78 +104,56 @@ fn StreamingFormCollector::push_event(
   }
   match event {
     PartBegin(headers) => {
-      guard self.current_headers is None else {
+      guard self.current_part is None else {
         return Err(MultipartError::InvalidStreamEvent)
       }
-      match validate_form_data_headers(headers) {
-        Ok(_) => ()
+      let part = match parse_form_part_metadata(headers) {
+        Ok(part) => part
         Err(error) => return Err(error)
       }
-      guard find_header(headers, "content-disposition") is Some(disposition) else {
-        return Err(MultipartError::MissingContentDisposition)
-      }
-      guard find_parameter(disposition, "name") is Some(name) else {
-        return Err(MultipartError::MissingFieldName)
-      }
       if !self.allowed_fields.is_empty() &&
-        !contains_string(self.allowed_fields, name) {
-        return Err(MultipartError::UnexpectedField(name))
+        !contains_string(self.allowed_fields, part.name) {
+        return Err(MultipartError::UnexpectedField(part.name))
       }
       self.text_buffer.reset()
       self.current_size = 0
-      match find_parameter(disposition, "filename") {
+      match part.filename {
         Some(filename) => {
           if self.file_count >= self.limits.max_file_count {
             return Err(
               MultipartError::FileCountExceeded(self.limits.max_file_count),
             )
           }
-          let content_type = match find_header(headers, "content-type") {
-            Some(value) => value
-            None => "application/octet-stream"
-          }
           let file = StreamedFile::{
-            field_name: name,
+            field_name: part.name,
             filename,
-            content_type,
-            headers,
+            content_type: part.content_type,
+            headers: part.headers,
           }
           match (self.sink)(FileSinkEvent::Begin(file)) {
             Ok(_) => ()
             Err(error) => return Err(error)
           }
           self.files.push(file)
-          self.current_is_file = true
         }
-        None => {
+        None =>
           if self.field_count >= self.limits.max_field_count {
             return Err(
               MultipartError::FieldCountExceeded(self.limits.max_field_count),
             )
           }
-          self.current_is_file = false
-        }
       }
-      self.current_headers = Some(headers)
+      self.current_part = Some(part)
       Ok(())
     }
     PartData(data) => {
-      guard self.current_headers is Some(_) else {
+      guard self.current_part is Some(part) else {
         return Err(MultipartError::InvalidStreamEvent)
       }
       let next_size = self.current_size + data.length()
-      guard self.current_headers is Some(headers) else {
-        return Err(MultipartError::InvalidStreamEvent)
-      }
-      guard find_header(headers, "content-disposition") is Some(disposition) else {
-        return Err(MultipartError::MissingContentDisposition)
-      }
-      guard find_parameter(disposition, "name") is Some(name) else {
-        return Err(MultipartError::MissingFieldName)
-      }
-      if self.current_is_file {
+      if part.filename is Some(_) {
         let limit = effective_field_size_limit(
-          name,
+          part.name,
           self.limits.max_file_size,
           self.field_size_limits,
         )
@@ -190,7 +166,7 @@ fn StreamingFormCollector::push_event(
         }
       } else {
         let limit = effective_field_size_limit(
-          name,
+          part.name,
           self.limits.max_field_size,
           self.field_size_limits,
         )
@@ -203,34 +179,30 @@ fn StreamingFormCollector::push_event(
       Ok(())
     }
     PartEnd => {
-      guard self.current_headers is Some(headers) else {
+      guard self.current_part is Some(part) else {
         return Err(MultipartError::InvalidStreamEvent)
       }
-      if self.current_is_file {
-        match (self.sink)(FileSinkEvent::End) {
-          Ok(_) => ()
-          Err(error) => return Err(error)
+      match part.filename {
+        Some(_) => {
+          match (self.sink)(FileSinkEvent::End) {
+            Ok(_) => ()
+            Err(error) => return Err(error)
+          }
+          self.file_count = self.file_count + 1
         }
-        self.file_count = self.file_count + 1
-      } else {
-        guard find_header(headers, "content-disposition") is Some(disposition) else {
-          return Err(MultipartError::MissingContentDisposition)
+        None => {
+          self.fields.push(TextField::{
+            name: part.name,
+            value: @utf8.decode_lossy(self.text_buffer.to_bytes()[:]),
+          })
+          self.field_count = self.field_count + 1
         }
-        guard find_parameter(disposition, "name") is Some(name) else {
-          return Err(MultipartError::MissingFieldName)
-        }
-        self.fields.push(TextField::{
-          name,
-          value: @utf8.decode_lossy(self.text_buffer.to_bytes()[:]),
-        })
-        self.field_count = self.field_count + 1
       }
-      self.current_headers = None
-      self.current_is_file = false
+      self.current_part = None
       Ok(())
     }
     Finished => {
-      guard self.current_headers is None else {
+      guard self.current_part is None else {
         return Err(MultipartError::InvalidStreamEvent)
       }
       self.finished = true
@@ -247,7 +219,7 @@ pub fn StreamingFormCollector::finish(
   match self.failed {
     Some(error) => Err(error)
     None =>
-      if self.finished && self.current_headers is None {
+      if self.finished && self.current_part is None {
         Ok(StreamedFormData::{ fields: self.fields, files: self.files })
       } else {
         Err(MultipartError::InvalidStreamEvent)

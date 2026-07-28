@@ -68,7 +68,7 @@ pub struct FormDataCollector {
   limits : FormDataLimits
   allowed_fields : Array[String]?
   field_size_limits : Array[FieldSizeLimit]
-  mut current_headers : Array[Header]?
+  mut current_part : FormPartMetadata?
   mut current_size : Int
   mut field_count : Int
   mut file_count : Int
@@ -94,6 +94,8 @@ pub(all) enum FormEntry {
   Text(TextField)
   File(UploadedFile)
 } derive(@debug.Debug)
+
+type FormPartMetadata
 
 pub(all) struct Header {
   name : String
@@ -166,9 +168,8 @@ pub struct StreamingFormCollector {
   allowed_fields : Array[String]
   field_size_limits : Array[FieldSizeLimit]
   sink : (FileSinkEvent) -> Result[Unit, MultipartError]
-  mut current_headers : Array[Header]?
+  mut current_part : FormPartMetadata?
   mut current_size : Int
-  mut current_is_file : Bool
   mut field_count : Int
   mut file_count : Int
   mut finished : Bool

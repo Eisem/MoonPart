@@ -122,7 +122,7 @@ pub struct FormDataCollector {
   limits : FormDataLimits
   allowed_fields : Array[String]?
   field_size_limits : Array[FieldSizeLimit]
-  mut current_headers : Array[Header]?
+  mut current_part : FormPartMetadata?
   mut current_size : Int
   mut field_count : Int
   mut file_count : Int
@@ -137,7 +137,7 @@ pub fn FormDataCollector::new() -> FormDataCollector {
     limits: FormDataLimits::default(),
     allowed_fields: None,
     field_size_limits: [],
-    current_headers: None,
+    current_part: None,
     current_size: 0,
     field_count: 0,
     file_count: 0,
@@ -157,7 +157,7 @@ pub fn FormDataCollector::with_file_size_limit(
     limits: FormDataLimits::{ ..limits, max_file_size, },
     allowed_fields: None,
     field_size_limits: [],
-    current_headers: None,
+    current_part: None,
     current_size: 0,
     field_count: 0,
     file_count: 0,
@@ -176,7 +176,7 @@ pub fn FormDataCollector::with_limits(
     limits,
     allowed_fields: None,
     field_size_limits: [],
-    current_headers: None,
+    current_part: None,
     current_size: 0,
     field_count: 0,
     file_count: 0,
@@ -197,7 +197,7 @@ pub fn FormDataCollector::with_allowed_fields(
     limits,
     allowed_fields: Some(allowed_fields),
     field_size_limits: [],
-    current_headers: None,
+    current_part: None,
     current_size: 0,
     field_count: 0,
     file_count: 0,
@@ -217,7 +217,7 @@ pub fn FormDataCollector::with_field_size_limits(
     limits,
     allowed_fields: None,
     field_size_limits,
-    current_headers: None,
+    current_part: None,
     current_size: 0,
     field_count: 0,
     file_count: 0,
@@ -236,27 +236,21 @@ pub fn FormDataCollector::push(
   }
   match event {
     PartBegin(headers) => {
-      guard self.current_headers is None else {
+      guard self.current_part is None else {
         return Err(MultipartError::InvalidStreamEvent)
       }
-      match validate_form_data_headers(headers) {
-        Ok(_) => ()
+      let part = match parse_form_part_metadata(headers) {
+        Ok(part) => part
         Err(error) => return Err(error)
-      }
-      guard find_header(headers, "content-disposition") is Some(disposition) else {
-        return Err(MultipartError::MissingContentDisposition)
-      }
-      guard find_parameter(disposition, "name") is Some(name) else {
-        return Err(MultipartError::MissingFieldName)
       }
       match self.allowed_fields {
         Some(allowed) =>
-          if !contains_string(allowed, name) {
-            return Err(MultipartError::UnexpectedField(name))
+          if !contains_string(allowed, part.name) {
+            return Err(MultipartError::UnexpectedField(part.name))
           }
         None => ()
       }
-      if find_parameter(disposition, "filename") is Some(_) {
+      if part.filename is Some(_) {
         if self.file_count >= self.limits.max_file_count {
           return Err(
             MultipartError::FileCountExceeded(self.limits.max_file_count),
@@ -269,23 +263,17 @@ pub fn FormDataCollector::push(
       }
       self.buffer.reset()
       self.current_size = 0
-      self.current_headers = Some(headers)
+      self.current_part = Some(part)
       Ok(())
     }
     PartData(data) => {
-      guard self.current_headers is Some(headers) else {
+      guard self.current_part is Some(part) else {
         return Err(MultipartError::InvalidStreamEvent)
       }
       let next_size = self.current_size + data.length()
-      guard find_header(headers, "content-disposition") is Some(disposition) else {
-        return Err(MultipartError::MissingContentDisposition)
-      }
-      guard find_parameter(disposition, "name") is Some(name) else {
-        return Err(MultipartError::MissingFieldName)
-      }
-      if find_parameter(disposition, "filename") is Some(_) {
+      if part.filename is Some(_) {
         let limit = effective_field_size_limit(
-          name,
+          part.name,
           self.limits.max_file_size,
           self.field_size_limits,
         )
@@ -294,7 +282,7 @@ pub fn FormDataCollector::push(
         }
       } else {
         let limit = effective_field_size_limit(
-          name,
+          part.name,
           self.limits.max_field_size,
           self.field_size_limits,
         )
@@ -307,27 +295,17 @@ pub fn FormDataCollector::push(
       Ok(())
     }
     PartEnd => {
-      guard self.current_headers is Some(headers) else {
+      guard self.current_part is Some(part) else {
         return Err(MultipartError::InvalidStreamEvent)
       }
-      guard find_header(headers, "content-disposition") is Some(disposition) else {
-        return Err(MultipartError::MissingContentDisposition)
-      }
-      guard find_parameter(disposition, "name") is Some(name) else {
-        return Err(MultipartError::MissingFieldName)
-      }
       let data = self.buffer.to_bytes()
-      match find_parameter(disposition, "filename") {
+      match part.filename {
         Some(filename) => {
-          let content_type = match find_header(headers, "content-type") {
-            Some(value) => value
-            None => "application/octet-stream"
-          }
           self.entries.push(
             FormEntry::File(UploadedFile::{
-              field_name: name,
+              field_name: part.name,
               filename,
-              content_type,
+              content_type: part.content_type,
               data,
             }),
           )
@@ -336,18 +314,18 @@ pub fn FormDataCollector::push(
         None => {
           self.entries.push(
             FormEntry::Text(TextField::{
-              name,
+              name: part.name,
               value: @utf8.decode_lossy(data[:]),
             }),
           )
           self.field_count = self.field_count + 1
         }
       }
-      self.current_headers = None
+      self.current_part = None
       Ok(())
     }
     Finished => {
-      guard self.current_headers is None else {
+      guard self.current_part is None else {
         return Err(MultipartError::InvalidStreamEvent)
       }
       self.finished = true
@@ -386,7 +364,7 @@ fn effective_field_size_limit(
 pub fn FormDataCollector::finish(
   self : FormDataCollector,
 ) -> Result[FormData, MultipartError] {
-  if self.finished && self.current_headers is None {
+  if self.finished && self.current_part is None {
     Ok(FormData::{ entries: self.entries })
   } else {
     Err(MultipartError::InvalidStreamEvent)
