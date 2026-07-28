@@ -82,6 +82,34 @@ test "keeps marker-like content that is not a delimiter" {
 }
 
 ///|
+test "streams many false boundary markers without altering data" {
+  let body = @buffer.Buffer()
+  let expected = @buffer.Buffer()
+  body.write_utf8(
+    "--fake\r\nContent-Disposition: form-data; name=\"data\"\r\n\r\n",
+  )
+  for index in 0..<256 {
+    let fragment = "item-\{index}\r\n--fakeX"
+    body.write_utf8(fragment)
+    expected.write_utf8(fragment)
+  }
+  body.write_utf8("\r\n--fake--\r\n")
+  let parser = StreamingParser::new("fake")
+  guard parser.feed_bytes(body.to_bytes()) is Ok(events) else {
+    fail("false markers should remain body data")
+  }
+  let received = @buffer.Buffer()
+  for event in events {
+    match event {
+      PartData(data) => received.write_bytes(data[:])
+      _ => ()
+    }
+  }
+  assert_true(parser.finish() is Ok(_))
+  assert_true(received.to_bytes() == expected.to_bytes())
+}
+
+///|
 test "rejects body above configured limit" {
   let parser = Parser::new("small", max_body_size=3)
   assert_true(parser.feed("1234") is Err(MultipartError::BodyTooLarge(3)))

@@ -266,7 +266,10 @@ fn StreamingParser::drain_body(
         self.state = AwaitingHeaders
         return self.drain(events)
       }
-      let emit_end = marker_start + 1
+      // The complete marker is known not to be a delimiter. A valid marker
+      // cannot begin inside it because boundaries cannot contain CR or LF, so
+      // emit it in one step instead of rescanning almost the same bytes.
+      let emit_end = after_marker
       let data = self.pending.view(end=emit_end).to_owned()
       match self.emit_part_data(events, data) {
         Ok(_) => ()
@@ -295,7 +298,13 @@ fn StreamingParser::emit_part_data(
 
 ///|
 fn concat_bytes(left : Bytes, right : Bytes) -> Bytes {
-  let buffer = @buffer.Buffer()
+  if left.is_empty() {
+    return right
+  }
+  if right.is_empty() {
+    return left
+  }
+  let buffer = @buffer.Buffer(size_hint=left.length() + right.length())
   buffer.write_bytes(left[:])
   buffer.write_bytes(right[:])
   buffer.to_bytes()
