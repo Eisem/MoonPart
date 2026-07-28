@@ -15,6 +15,13 @@ pub(all) struct UploadedFile {
 } derive(Debug)
 
 ///|
+/// Returns the submitted filename without Unix or Windows directory
+/// components. Generate a separate server-side storage path for the file.
+pub fn UploadedFile::filename_basename(self : UploadedFile) -> String {
+  filename_basename(self.filename)
+}
+
+///|
 /// A form entry in original wire order. Repeated names are intentionally kept.
 pub(all) enum FormEntry {
   Text(TextField)

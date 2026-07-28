@@ -91,6 +91,10 @@ For small forms, feed the same events to `FormDataCollector`; it preserves the
 wire order and repeated field names while exposing text fields and raw file
 bytes. Its configurable per-part memory limit makes its buffering explicit.
 
+Submitted filenames are untrusted input. `filename_basename` removes Unix and
+Windows directory components, but applications should still generate their own
+server-side storage paths rather than writing directly to a submitted name.
+
 ## Development
 
 ```sh

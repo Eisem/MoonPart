@@ -13,6 +13,8 @@ pub fn decode_bytes(String, Bytes) -> Result[Array[StreamEvent], MultipartError]
 
 pub fn encode(String, Array[Part]) -> String
 
+pub fn filename_basename(String) -> String
+
 // Errors
 pub(all) suberror MultipartError {
   InvalidBoundary
@@ -105,6 +107,7 @@ pub(all) struct Part {
 pub fn Part::content_type(Self) -> String
 pub fn Part::disposition_parameter(Self, String) -> String?
 pub fn Part::filename(Self) -> String?
+pub fn Part::filename_basename(Self) -> String?
 pub fn Part::header(Self, String) -> String?
 pub fn Part::is_file(Self) -> Bool
 pub fn Part::name(Self) -> String?
@@ -161,6 +164,7 @@ pub(all) struct UploadedFile {
   content_type : String
   data : Bytes
 } derive(@debug.Debug)
+pub fn UploadedFile::filename_basename(Self) -> String
 
 // Type aliases
 

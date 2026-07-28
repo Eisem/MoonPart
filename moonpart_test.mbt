@@ -129,6 +129,32 @@ test "unescapes quoted disposition parameter values" {
 }
 
 ///|
+test "removes directory components from submitted filenames" {
+  assert_eq(filename_basename("../../etc/passwd"), "passwd")
+  assert_eq(filename_basename("..\\..\\secret.txt"), "secret.txt")
+  assert_eq(filename_basename("folder\\nested/file.bin"), "file.bin")
+  assert_eq(filename_basename(".."), "")
+  let part = Part::{
+    headers: [
+      Header::{
+        name: "Content-Disposition",
+        value: "form-data; name=\"asset\"; filename=\"../safe.txt\"",
+      },
+    ],
+    body: "",
+  }
+  assert_true(part.filename() == Some("../safe.txt"))
+  assert_true(part.filename_basename() == Some("safe.txt"))
+  let file = UploadedFile::{
+    field_name: "asset",
+    filename: "C:\\temp\\safe.txt",
+    content_type: "text/plain",
+    data: b"",
+  }
+  assert_eq(file.filename_basename(), "safe.txt")
+}
+
+///|
 test "keeps semicolons inside quoted disposition parameters" {
   let source = "--semicolon\r\n" +
     "Content-Disposition: form-data; name=\"asset\"; filename=\"report;final.txt\"\r\n" +

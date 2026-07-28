@@ -205,6 +205,35 @@ pub fn Part::filename(self : Part) -> String? {
 }
 
 ///|
+/// Returns the submitted filename with both Unix and Windows directory
+/// components removed. An empty string is returned for `.` and `..`; callers
+/// should still generate their own storage path rather than trusting a name.
+pub fn filename_basename(filename : String) -> String {
+  let mut basename = filename
+  for segment in filename.split("/") {
+    basename = segment.to_owned()
+  }
+  let without_unix_path = basename
+  for segment in without_unix_path.split("\\") {
+    basename = segment.to_owned()
+  }
+  if basename == "." || basename == ".." {
+    ""
+  } else {
+    basename
+  }
+}
+
+///|
+/// Returns the submitted filename without directory components.
+pub fn Part::filename_basename(self : Part) -> String? {
+  match self.filename() {
+    Some(filename) => Some(filename_basename(filename))
+    None => None
+  }
+}
+
+///|
 /// Returns the part media type. RFC 7578 defaults an omitted Content-Type to
 /// `text/plain` for form fields.
 pub fn Part::content_type(self : Part) -> String {
