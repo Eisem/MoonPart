@@ -1,6 +1,38 @@
-.DS_Store
+# MoonBit build, coverage, benchmark, and package artifacts
 _build/
 target/
-target
+coverage/
+coverage.lcov
+*.prof
+*.trace
+profile.json
+
+# MoonBit and local agent caches
+.moon/
 .mooncakes/
 .moonagent/
+.agents/
+.codex/
+
+# Local configuration and secrets (keep documented templates tracked)
+.env
+.env.*
+!.env.example
+!.env.template
+
+# Dependency and tool caches that may be created by auxiliary tooling
+node_modules/
+.cache/
+
+# Logs and temporary editor files
+*.log
+*.swp
+*.swo
+*~
+
+# IDE and operating-system metadata
+.idea/
+.vscode/
+.fleet/
+.DS_Store
+Thumbs.db
