@@ -25,7 +25,7 @@ tagged GitHub release remain external completion steps.
 | Documentation tests | Pass | 4/4 `README.mbt.md` tests pass |
 | Coverage | Pass | 649/733 instrumented points (88.5%); 62 source lines remain uncovered |
 | Publishable package | Pass | `moon package --list` and `moon package` produce `eisem-moonpart-0.1.0.zip` |
-| Published to mooncakes.io | Pending | `eisem/moonpart` is not published as of the audit date |
+| Published to mooncakes.io | Pass | `eisem/moonpart@0.1.0` published successfully on 2026-08-28 |
 | Traceable development | Pass | 48 commits exist at the verified baseline; changelog and contribution workflow are present |
 | Functional boundary | Pass | `README.mbt.md` and `docs/DESIGN.md` define responsibilities and non-goals |
 | Open-source compliance | Pass | Apache-2.0 license; implementation is original; no third-party module dependency |
@@ -65,8 +65,7 @@ before submission because the registry can change.
 
 1. Add and synchronize the required Gitlink remote.
 2. Re-run the mooncakes.io overlap query.
-3. Publish with the authenticated MoonBit toolchain and verify the generated
-   package documentation page.
+3. Verify the generated package documentation page after registry indexing.
 4. Tag `v0.1.0`, convert the changelog section into a dated release, and create
    a GitHub release.
 5. Record at least one real Issue or pull request if the competition review
