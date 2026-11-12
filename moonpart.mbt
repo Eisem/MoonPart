@@ -1,25 +1,28 @@
 ///|
 /// A header belonging to one multipart body part. Header names are preserved
 /// as received; use `Part::header` for case-insensitive lookup.
+#derive(Debug, Eq)
 pub(all) struct Header {
   name : String
   value : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// One decoded multipart body part. `body` is text in this first core API;
 /// the parser never interprets its contents.
+#derive(Debug, Eq)
 pub(all) struct Part {
   headers : Array[Header]
   body : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// Errors reported when a multipart body is malformed or exceeds its limit.
+#derive(Debug)
 pub(all) suberror MultipartError {
   InvalidBoundary
   InvalidContentType
-  BodyTooLarge(Int)
+  BodyTooLarge(Int32)
   MissingOpeningBoundary
   MissingHeaderTerminator
   InvalidHeader(String)
@@ -27,20 +30,20 @@ pub(all) suberror MultipartError {
   MissingContentDisposition
   InvalidContentDisposition
   MissingFieldName
-  HeaderTooLarge(Int)
-  HeaderCountExceeded(Int)
-  PartCountExceeded(Int)
-  PartTooLarge(Int)
+  HeaderTooLarge(Int32)
+  HeaderCountExceeded(Int32)
+  PartCountExceeded(Int32)
+  PartTooLarge(Int32)
   InvalidStreamEvent
-  FieldTooLarge(Int)
-  FileTooLarge(Int)
-  FieldCountExceeded(Int)
-  FileCountExceeded(Int)
+  FieldTooLarge(Int32)
+  FileTooLarge(Int32)
+  FieldCountExceeded(Int32)
+  FileCountExceeded(Int32)
   UnexpectedField(String)
   SinkFailure(String)
   MissingClosingBoundary
   UnexpectedBoundary
-} derive(Debug)
+}
 
 ///|
 /// An incremental multipart collector. Chunks may be supplied at arbitrary
@@ -48,10 +51,10 @@ pub(all) suberror MultipartError {
 /// is handled exactly like an unsplit delimiter.
 pub struct Parser {
   boundary : String
-  max_body_size : Int
-  max_part_count : Int
-  max_header_size : Int
-  max_header_count : Int
+  max_body_size : Int32
+  max_part_count : Int32
+  max_header_size : Int32
+  max_header_count : Int32
   mut buffer : String
   mut failed : MultipartError?
 }
@@ -61,7 +64,7 @@ pub struct Parser {
 /// value from the Content-Type parameter, without the leading `--`.
 pub fn Parser::new(
   boundary : String,
-  max_body_size? : Int = 8_388_608,
+  max_body_size~ : Int32 = 8_388_608,
 ) -> Parser {
   Parser::{
     boundary,
@@ -79,10 +82,10 @@ pub fn Parser::new(
 /// once any configured bound is exceeded.
 pub fn Parser::with_limits(
   boundary : String,
-  max_body_size? : Int = 8_388_608,
-  max_part_count? : Int = 1_024,
-  max_header_size? : Int = 16_384,
-  max_header_count? : Int = 128,
+  max_body_size~ : Int32 = 8_388_608,
+  max_part_count~ : Int32 = 1_024,
+  max_header_size~ : Int32 = 16_384,
+  max_header_count~ : Int32 = 128,
 ) -> Parser {
   Parser::{
     boundary,
@@ -99,7 +102,7 @@ pub fn Parser::with_limits(
 /// Creates a parser directly from an HTTP Content-Type value.
 pub fn Parser::from_content_type(
   content_type : String,
-  max_body_size? : Int = 8_388_608,
+  max_body_size~ : Int32 = 8_388_608,
 ) -> Result[Parser, MultipartError] {
   match boundary_from_content_type(content_type) {
     Ok(boundary) => Ok(Parser::new(boundary, max_body_size~))
@@ -268,9 +271,9 @@ pub fn encode(boundary : String, parts : Array[Part]) -> String {
 fn parse_body(
   boundary : String,
   body : String,
-  max_part_count : Int,
-  max_header_size : Int,
-  max_header_count : Int,
+  max_part_count : Int32,
+  max_header_size : Int32,
+  max_header_count : Int32,
 ) -> Result[Array[Part], MultipartError] {
   guard is_valid_boundary(boundary) else {
     return Err(MultipartError::InvalidBoundary)
@@ -357,7 +360,11 @@ fn is_valid_boundary(boundary : String) -> Bool {
 /// Finds the next syntactically valid delimiter. A body may legally contain a
 /// marker-like byte sequence when it is not followed by CRLF or `--`, so that
 /// sequence must remain part of the part body.
-fn find_delimiter(body : String, marker : String, start : Int) -> (Int, Int)? {
+fn find_delimiter(
+  body : String,
+  marker : String,
+  start : Int32,
+) -> (Int32, Int32)? {
   for scan = start {
     let remaining = body[scan:].to_owned()
     guard remaining.find(marker) is Some(offset) else { return None }
@@ -374,7 +381,7 @@ fn find_delimiter(body : String, marker : String, start : Int) -> (Int, Int)? {
 ///|
 fn parse_headers(
   text : String,
-  max_header_count? : Int = 128,
+  max_header_count~ : Int32 = 128,
 ) -> Result[Array[Header], MultipartError] {
   let headers : Array[Header] = []
   for line in text.split("\r\n") {
@@ -393,7 +400,7 @@ fn parse_headers(
     guard is_valid_header_value(normalized_value) else {
       return Err(MultipartError::InvalidHeader(source))
     }
-    headers.push(Header::{ name: normalized_name, value: normalized_value })
+    headers.push(Header::{ name: normalized_name, value: normalized_value, })
   }
   Ok(headers)
 }

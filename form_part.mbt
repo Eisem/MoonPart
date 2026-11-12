@@ -52,7 +52,7 @@ fn parse_form_part_metadata(
         "text/plain"
       }
   }
-  Ok(FormPartMetadata::{ headers, name, filename, content_type })
+  Ok(FormPartMetadata::{ headers, name, filename, content_type, })
 }
 
 ///|

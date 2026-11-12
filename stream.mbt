@@ -1,12 +1,13 @@
 ///|
 /// Events emitted by the binary multipart decoder. Part bodies remain Bytes,
 /// so file contents are never decoded as text.
+#derive(Debug)
 pub(all) enum StreamEvent {
   PartBegin(Array[Header])
   PartData(Bytes)
   PartEnd
   Finished
-} derive(Debug)
+}
 
 ///|
 /// Decodes a complete multipart body into binary-preserving events. This is
@@ -69,8 +70,8 @@ pub fn decode_bytes(
 fn find_byte_delimiter(
   body : Bytes,
   marker : Bytes,
-  start : Int,
-) -> (Int, Int)? {
+  start : Int32,
+) -> (Int32, Int32)? {
   for scan = start {
     let remaining = body.view(start=scan)
     guard remaining.find(marker[:]) is Some(offset) else { return None }

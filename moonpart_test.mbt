@@ -51,7 +51,7 @@ test "encoder round trips parts" {
   let parts = [
     Part::{
       headers: [
-        Header::{ name: "Content-Disposition", value: "form-data; name=\"q\"" },
+        Header::{ name: "Content-Disposition", value: "form-data; name=\"q\"", },
       ],
       body: "moon",
     },
@@ -585,7 +585,7 @@ test "collector applies separate field and file limits" {
     max_file_count: 1,
   })
   let field_headers = [
-    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"" },
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"", },
   ]
   assert_true(collector.push(StreamEvent::PartBegin(field_headers)) is Ok(_))
   assert_true(
@@ -622,10 +622,10 @@ test "collectors apply stricter named field size limits" {
     max_field_count: 10,
     max_file_count: 10,
   }
-  let named = [FieldSizeLimit::{ name: "title", max_size: 2 }]
+  let named = [FieldSizeLimit::{ name: "title", max_size: 2, }]
   let collector = FormDataCollector::with_field_size_limits(limits, named)
   let headers = [
-    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"" },
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"", },
   ]
   assert_true(collector.push(StreamEvent::PartBegin(headers)) is Ok(_))
   assert_true(
@@ -636,7 +636,7 @@ test "collectors apply stricter named field size limits" {
     Ok(())
   }
   let streamed = StreamingFormCollector::new(sink, limits~, field_size_limits=[
-    FieldSizeLimit::{ name: "asset", max_size: 1 },
+    FieldSizeLimit::{ name: "asset", max_size: 1, },
   ])
   let file_headers = [
     Header::{
@@ -655,13 +655,13 @@ test "collectors apply stricter named field size limits" {
 test "collector rejects unexpected field names before body data" {
   let collector = FormDataCollector::with_allowed_fields(["title", "asset"])
   let title_headers = [
-    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"" },
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"title\"", },
   ]
   assert_true(collector.push(StreamEvent::PartBegin(title_headers)) is Ok(_))
   assert_true(collector.push(StreamEvent::PartData(b"MoonBit")) is Ok(_))
   assert_true(collector.push(StreamEvent::PartEnd) is Ok(_))
   let unknown_headers = [
-    Header::{ name: "Content-Disposition", value: "form-data; name=\"admin\"" },
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"admin\"", },
   ]
   assert_true(
     collector.push(StreamEvent::PartBegin(unknown_headers))
@@ -848,7 +848,7 @@ test "streaming encoder emits binary-safe wire chunks" {
         name: "Content-Disposition",
         value: "form-data; name=\"asset\"; filename=\"a.bin\"",
       },
-      Header::{ name: "Content-Type", value: "application/octet-stream" },
+      Header::{ name: "Content-Type", value: "application/octet-stream", },
     ]),
     StreamEvent::PartData(b"\x00\xffpayload"),
     StreamEvent::PartEnd,
@@ -894,7 +894,7 @@ test "streaming encoder rejects invalid boundaries, headers, and event order" {
           name: "Content-Disposition",
           value: "form-data; name=\"field\"",
         },
-        Header::{ name: "X-Unsafe\r\nInjected", value: "value" },
+        Header::{ name: "X-Unsafe\r\nInjected", value: "value", },
       ]),
     )
     is Err(MultipartError::InvalidHeader(_)),
@@ -916,7 +916,7 @@ test "streaming encoder rejects invalid boundaries, headers, and event order" {
   )
   let repeated_begin = StreamingEncoder::new("repeat")
   let headers = [
-    Header::{ name: "Content-Disposition", value: "form-data; name=\"field\"" },
+    Header::{ name: "Content-Disposition", value: "form-data; name=\"field\"", },
   ]
   assert_true(repeated_begin.push(StreamEvent::PartBegin(headers)) is Ok(_))
   assert_true(

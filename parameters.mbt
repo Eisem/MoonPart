@@ -76,7 +76,7 @@ fn parse_parameterized_value(
     }
     parameters.push(parameter)
   }
-  Ok(ParameterizedValue::{ base, parameters })
+  Ok(ParameterizedValue::{ base, parameters, })
 }
 
 ///|
@@ -97,7 +97,7 @@ fn parse_parameter_segment(segment : String) -> MediaParameter? {
     guard is_valid_header_name(candidate) else { return None }
     candidate
   }
-  Some(MediaParameter::{ name, value: parsed_value })
+  Some(MediaParameter::{ name, value: parsed_value, })
 }
 
 ///|

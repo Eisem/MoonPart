@@ -200,6 +200,8 @@ reporting process.
 
 ## Development
 
+CI uses MoonBit `0.10.20+65efd5b93`. Running the JavaScript tests requires Node.js, and the native backend requires a C compiler.
+
 ```sh
 moon fmt
 moon info

@@ -16,10 +16,11 @@ pub fn encode(String, Array[Part]) -> String
 pub fn filename_basename(String) -> String
 
 // Errors
+#derive(@debug.Debug)
 pub(all) suberror MultipartError {
   InvalidBoundary
   InvalidContentType
-  BodyTooLarge(Int)
+  BodyTooLarge(Int32)
   MissingOpeningBoundary
   MissingHeaderTerminator
   InvalidHeader(String)
@@ -27,38 +28,41 @@ pub(all) suberror MultipartError {
   MissingContentDisposition
   InvalidContentDisposition
   MissingFieldName
-  HeaderTooLarge(Int)
-  HeaderCountExceeded(Int)
-  PartCountExceeded(Int)
-  PartTooLarge(Int)
+  HeaderTooLarge(Int32)
+  HeaderCountExceeded(Int32)
+  PartCountExceeded(Int32)
+  PartTooLarge(Int32)
   InvalidStreamEvent
-  FieldTooLarge(Int)
-  FileTooLarge(Int)
-  FieldCountExceeded(Int)
-  FileCountExceeded(Int)
+  FieldTooLarge(Int32)
+  FileTooLarge(Int32)
+  FieldCountExceeded(Int32)
+  FileCountExceeded(Int32)
   UnexpectedField(String)
   SinkFailure(String)
   MissingClosingBoundary
   UnexpectedBoundary
-} derive(@debug.Debug)
+}
 
 // Types and methods
 type EncoderState
 
+#derive(Eq, @debug.Debug)
 pub(all) struct FieldSizeLimit {
   name : String
-  max_size : Int
-} derive(Eq, @debug.Debug)
+  max_size : Int32
+}
 
+#derive(@debug.Debug)
 pub(all) enum FileSinkEvent {
   Begin(StreamedFile)
   Data(Bytes)
   End
-} derive(@debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub(all) struct FormData {
   entries : Array[FormEntry]
-} derive(@debug.Debug)
+}
 pub fn FormData::file(Self, String) -> UploadedFile?
 pub fn FormData::files(Self, String) -> Array[UploadedFile]
 pub fn FormData::text(Self, String) -> String?
@@ -71,9 +75,9 @@ pub struct FormDataCollector {
   allowed_fields : Array[String]?
   field_size_limits : Array[FieldSizeLimit]
   mut current_part : FormPartMetadata?
-  mut current_size : Int
-  mut field_count : Int
-  mut file_count : Int
+  mut current_size : Int32
+  mut field_count : Int32
+  mut file_count : Int32
   mut finished : Bool
 }
 pub fn FormDataCollector::finish(Self) -> Result[FormData, MultipartError]
@@ -81,48 +85,51 @@ pub fn FormDataCollector::new() -> Self
 pub fn FormDataCollector::push(Self, StreamEvent) -> Result[Unit, MultipartError]
 pub fn FormDataCollector::with_allowed_fields(Array[String], limits? : FormDataLimits) -> Self
 pub fn FormDataCollector::with_field_size_limits(FormDataLimits, Array[FieldSizeLimit]) -> Self
-pub fn FormDataCollector::with_file_size_limit(Int) -> Self
+pub fn FormDataCollector::with_file_size_limit(Int32) -> Self
 pub fn FormDataCollector::with_limits(FormDataLimits) -> Self
 
 pub(all) struct FormDataLimits {
-  max_field_size : Int
-  max_file_size : Int
-  max_field_count : Int
-  max_file_count : Int
+  max_field_size : Int32
+  max_file_size : Int32
+  max_field_count : Int32
+  max_file_count : Int32
 }
 pub fn FormDataLimits::default() -> Self
 
+#derive(@debug.Debug)
 pub(all) enum FormEntry {
   Text(TextField)
   File(UploadedFile)
-} derive(@debug.Debug)
+}
 
 type FormPartMetadata
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Header {
   name : String
   value : String
-} derive(Eq, @debug.Debug)
+}
 
 pub struct Parser {
   boundary : String
-  max_body_size : Int
-  max_part_count : Int
-  max_header_size : Int
-  max_header_count : Int
+  max_body_size : Int32
+  max_part_count : Int32
+  max_header_size : Int32
+  max_header_count : Int32
   mut buffer : String
   mut failed : MultipartError?
 }
 pub fn Parser::feed(Self, String) -> Result[Unit, MultipartError]
 pub fn Parser::finish(Self) -> Result[Array[Part], MultipartError]
-pub fn Parser::from_content_type(String, max_body_size? : Int) -> Result[Self, MultipartError]
-pub fn Parser::new(String, max_body_size? : Int) -> Self
-pub fn Parser::with_limits(String, max_body_size? : Int, max_part_count? : Int, max_header_size? : Int, max_header_count? : Int) -> Self
+pub fn Parser::from_content_type(String, max_body_size? : Int32) -> Result[Self, MultipartError]
+pub fn Parser::new(String, max_body_size? : Int32) -> Self
+pub fn Parser::with_limits(String, max_body_size? : Int32, max_part_count? : Int32, max_header_size? : Int32, max_header_count? : Int32) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct Part {
   headers : Array[Header]
   body : String
-} derive(Eq, @debug.Debug)
+}
 pub fn Part::content_type(Self) -> String
 pub fn Part::disposition_parameter(Self, String) -> String?
 pub fn Part::filename(Self) -> String?
@@ -131,36 +138,40 @@ pub fn Part::header(Self, String) -> String?
 pub fn Part::is_file(Self) -> Bool
 pub fn Part::name(Self) -> String?
 
+#derive(@debug.Debug)
 pub(all) enum StreamEvent {
   PartBegin(Array[Header])
   PartData(Bytes)
   PartEnd
   Finished
-} derive(@debug.Debug)
+}
 
 pub(all) struct StreamLimits {
-  max_body_size : Int
-  max_part_count : Int
-  max_header_size : Int
-  max_header_count : Int
-  max_part_size : Int
+  max_body_size : Int32
+  max_part_count : Int32
+  max_header_size : Int32
+  max_header_count : Int32
+  max_part_size : Int32
 }
 pub fn StreamLimits::default() -> Self
 
-type StreamState derive(@debug.Debug)
+#derive(@debug.Debug)
+type StreamState
 
+#derive(Eq, @debug.Debug)
 pub(all) struct StreamedFile {
   field_name : String
   filename : String
   content_type : String
   headers : Array[Header]
-} derive(Eq, @debug.Debug)
+}
 pub fn StreamedFile::filename_basename(Self) -> String
 
+#derive(@debug.Debug)
 pub(all) struct StreamedFormData {
   fields : Array[TextField]
   files : Array[StreamedFile]
-} derive(@debug.Debug)
+}
 
 pub struct StreamingEncoder {
   boundary : String
@@ -181,9 +192,9 @@ pub struct StreamingFormCollector {
   field_size_limits : Array[FieldSizeLimit]
   sink : (FileSinkEvent) -> Result[Unit, MultipartError]
   mut current_part : FormPartMetadata?
-  mut current_size : Int
-  mut field_count : Int
-  mut file_count : Int
+  mut current_size : Int32
+  mut field_count : Int32
+  mut file_count : Int32
   mut finished : Bool
   mut failed : MultipartError?
 }
@@ -208,9 +219,9 @@ pub struct StreamingParser {
   limits : StreamLimits
   mut pending : Bytes
   mut state : StreamState
-  mut received_size : Int
-  mut part_count : Int
-  mut current_part_size : Int
+  mut received_size : Int32
+  mut part_count : Int32
+  mut current_part_size : Int32
   mut failed : MultipartError?
 }
 pub fn StreamingParser::feed_bytes(Self, Bytes) -> Result[Array[StreamEvent], MultipartError]
@@ -219,20 +230,21 @@ pub fn StreamingParser::from_content_type(String, limits? : StreamLimits) -> Res
 pub fn StreamingParser::new(String) -> Self
 pub fn StreamingParser::with_limits(String, StreamLimits) -> Self
 
+#derive(Eq, @debug.Debug)
 pub(all) struct TextField {
   name : String
   value : String
-} derive(Eq, @debug.Debug)
+}
 
+#derive(@debug.Debug)
 pub(all) struct UploadedFile {
   field_name : String
   filename : String
   content_type : String
   data : Bytes
-} derive(@debug.Debug)
+}
 pub fn UploadedFile::filename_basename(Self) -> String
 
 // Type aliases
 
 // Traits
-

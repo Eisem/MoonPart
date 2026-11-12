@@ -1,22 +1,23 @@
 ///|
 /// Internal state of an incremental binary multipart decoder.
+#derive(Debug)
 enum StreamState {
   AwaitingOpening
   AwaitingHeaders
   ReadingBody
   Done
-} derive(Debug)
+}
 
 ///|
 /// Resource bounds for the incremental decoder. They mirror the limits that
 /// production multipart readers use to prevent unbounded header or body
 /// buffering.
 pub(all) struct StreamLimits {
-  max_body_size : Int
-  max_part_count : Int
-  max_header_size : Int
-  max_header_count : Int
-  max_part_size : Int
+  max_body_size : Int32
+  max_part_count : Int32
+  max_header_size : Int32
+  max_header_count : Int32
+  max_part_size : Int32
 }
 
 ///|
@@ -40,9 +41,9 @@ pub struct StreamingParser {
   limits : StreamLimits
   mut pending : Bytes
   mut state : StreamState
-  mut received_size : Int
-  mut part_count : Int
-  mut current_part_size : Int
+  mut received_size : Int32
+  mut part_count : Int32
+  mut current_part_size : Int32
   mut failed : MultipartError?
 }
 
@@ -77,7 +78,7 @@ pub fn StreamingParser::with_limits(
 /// value, including a quoted boundary parameter.
 pub fn StreamingParser::from_content_type(
   content_type : String,
-  limits? : StreamLimits = StreamLimits::default(),
+  limits~ : StreamLimits = StreamLimits::default(),
 ) -> Result[StreamingParser, MultipartError] {
   match boundary_from_content_type(content_type) {
     Ok(boundary) => Ok(StreamingParser::with_limits(boundary, limits))

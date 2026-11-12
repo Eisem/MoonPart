@@ -1,18 +1,20 @@
 ///|
 /// A decoded text form field.
+#derive(Debug, Eq)
 pub(all) struct TextField {
   name : String
   value : String
-} derive(Debug, Eq)
+}
 
 ///|
 /// A decoded uploaded file. `data` preserves the original file bytes.
+#derive(Debug)
 pub(all) struct UploadedFile {
   field_name : String
   filename : String
   content_type : String
   data : Bytes
-} derive(Debug)
+}
 
 ///|
 /// Returns the submitted filename without Unix or Windows directory
@@ -23,16 +25,18 @@ pub fn UploadedFile::filename_basename(self : UploadedFile) -> String {
 
 ///|
 /// A form entry in original wire order. Repeated names are intentionally kept.
+#derive(Debug)
 pub(all) enum FormEntry {
   Text(TextField)
   File(UploadedFile)
-} derive(Debug)
+}
 
 ///|
 /// Collected multipart/form-data entries in original wire order.
+#derive(Debug)
 pub(all) struct FormData {
   entries : Array[FormEntry]
-} derive(Debug)
+}
 
 ///|
 /// Returns the first text value with the supplied field name.
@@ -89,10 +93,10 @@ pub fn FormData::files(self : FormData, name : String) -> Array[UploadedFile] {
 /// separate because applications commonly accept many small fields but only a
 /// small number of larger uploads.
 pub(all) struct FormDataLimits {
-  max_field_size : Int
-  max_file_size : Int
-  max_field_count : Int
-  max_file_count : Int
+  max_field_size : Int32
+  max_file_size : Int32
+  max_field_count : Int32
+  max_file_count : Int32
 }
 
 ///|
@@ -108,10 +112,11 @@ pub fn FormDataLimits::default() -> FormDataLimits {
 ///|
 /// A size override for one named form field. It applies to both text and file
 /// parts and can only make the corresponding global limit stricter.
+#derive(Debug, Eq)
 pub(all) struct FieldSizeLimit {
   name : String
-  max_size : Int
-} derive(Debug, Eq)
+  max_size : Int32
+}
 
 ///|
 /// Event consumer that builds an in-memory FormData value from a
@@ -123,9 +128,9 @@ pub struct FormDataCollector {
   allowed_fields : Array[String]?
   field_size_limits : Array[FieldSizeLimit]
   mut current_part : FormPartMetadata?
-  mut current_size : Int
-  mut field_count : Int
-  mut file_count : Int
+  mut current_size : Int32
+  mut field_count : Int32
+  mut file_count : Int32
   mut finished : Bool
 }
 
@@ -148,7 +153,7 @@ pub fn FormDataCollector::new() -> FormDataCollector {
 ///|
 /// Creates an in-memory collector with a maximum size for one part body.
 pub fn FormDataCollector::with_file_size_limit(
-  max_file_size : Int,
+  max_file_size : Int32,
 ) -> FormDataCollector {
   let limits = FormDataLimits::default()
   FormDataCollector::{
@@ -189,7 +194,7 @@ pub fn FormDataCollector::with_limits(
 /// `allowed_fields`. Repeated occurrences of an allowed name remain valid.
 pub fn FormDataCollector::with_allowed_fields(
   allowed_fields : Array[String],
-  limits? : FormDataLimits = FormDataLimits::default(),
+  limits~ : FormDataLimits = FormDataLimits::default(),
 ) -> FormDataCollector {
   FormDataCollector::{
     entries: [],
@@ -347,9 +352,9 @@ fn contains_string(values : Array[String], expected : String) -> Bool {
 ///|
 fn effective_field_size_limit(
   name : String,
-  global_limit : Int,
+  global_limit : Int32,
   limits : Array[FieldSizeLimit],
-) -> Int {
+) -> Int32 {
   let mut effective = global_limit
   for limit in limits {
     if limit.name == name && limit.max_size < effective {
@@ -365,7 +370,7 @@ pub fn FormDataCollector::finish(
   self : FormDataCollector,
 ) -> Result[FormData, MultipartError] {
   if self.finished && self.current_part is None {
-    Ok(FormData::{ entries: self.entries })
+    Ok(FormData::{ entries: self.entries, })
   } else {
     Err(MultipartError::InvalidStreamEvent)
   }

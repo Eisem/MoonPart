@@ -47,7 +47,7 @@ before submission because the registry can change.
 ## Engineering observations
 
 - The CI toolchain and core library are both pinned to
-  `0.10.0+e66899a54`, preventing formatter and generated-interface drift.
+  `0.10.20+65efd5b93`, preventing formatter and generated-interface drift.
 - Public concrete API types are owned by the root package. Generated `.mbti`
   files are checked in CI.
 - Streaming parser memory is bounded by configured limits and a

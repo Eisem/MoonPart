@@ -1,12 +1,13 @@
 ///|
 /// Metadata for a streamed file part. File contents are delivered separately
 /// as `FileSinkEvent::Data` and are never retained by StreamingFormCollector.
+#derive(Debug, Eq)
 pub(all) struct StreamedFile {
   field_name : String
   filename : String
   content_type : String
   headers : Array[Header]
-} derive(Debug, Eq)
+}
 
 ///|
 /// Returns the submitted filename without Unix or Windows directory parts.
@@ -17,20 +18,22 @@ pub fn StreamedFile::filename_basename(self : StreamedFile) -> String {
 ///|
 /// Events sent to an application-provided file sink. Each Begin is followed by
 /// zero or more Data events and exactly one End event.
+#derive(Debug)
 pub(all) enum FileSinkEvent {
   Begin(StreamedFile)
   Data(Bytes)
   End
-} derive(Debug)
+}
 
 ///|
 /// Result of sink-based form collection. Text fields are retained in memory;
 /// files contain metadata only because their bytes have already reached the
 /// sink.
+#derive(Debug)
 pub(all) struct StreamedFormData {
   fields : Array[TextField]
   files : Array[StreamedFile]
-} derive(Debug)
+}
 
 ///|
 /// Consumes multipart events while forwarding file bytes to a callback. An
@@ -44,9 +47,9 @@ pub struct StreamingFormCollector {
   field_size_limits : Array[FieldSizeLimit]
   sink : (FileSinkEvent) -> Result[Unit, MultipartError]
   mut current_part : FormPartMetadata?
-  mut current_size : Int
-  mut field_count : Int
-  mut file_count : Int
+  mut current_size : Int32
+  mut field_count : Int32
+  mut file_count : Int32
   mut finished : Bool
   mut failed : MultipartError?
 }
@@ -54,9 +57,9 @@ pub struct StreamingFormCollector {
 ///|
 pub fn StreamingFormCollector::new(
   sink : (FileSinkEvent) -> Result[Unit, MultipartError],
-  limits? : FormDataLimits = FormDataLimits::default(),
-  allowed_fields? : Array[String] = [],
-  field_size_limits? : Array[FieldSizeLimit] = [],
+  limits~ : FormDataLimits = FormDataLimits::default(),
+  allowed_fields~ : Array[String] = [],
+  field_size_limits~ : Array[FieldSizeLimit] = [],
 ) -> StreamingFormCollector {
   StreamingFormCollector::{
     fields: [],
@@ -220,7 +223,7 @@ pub fn StreamingFormCollector::finish(
     Some(error) => Err(error)
     None =>
       if self.finished && self.current_part is None {
-        Ok(StreamedFormData::{ fields: self.fields, files: self.files })
+        Ok(StreamedFormData::{ fields: self.fields, files: self.files, })
       } else {
         Err(MultipartError::InvalidStreamEvent)
       }
@@ -241,10 +244,10 @@ pub struct StreamingFormDecoder {
 pub fn StreamingFormDecoder::new(
   boundary : String,
   sink : (FileSinkEvent) -> Result[Unit, MultipartError],
-  stream_limits? : StreamLimits = StreamLimits::default(),
-  form_limits? : FormDataLimits = FormDataLimits::default(),
-  allowed_fields? : Array[String] = [],
-  field_size_limits? : Array[FieldSizeLimit] = [],
+  stream_limits~ : StreamLimits = StreamLimits::default(),
+  form_limits~ : FormDataLimits = FormDataLimits::default(),
+  allowed_fields~ : Array[String] = [],
+  field_size_limits~ : Array[FieldSizeLimit] = [],
 ) -> StreamingFormDecoder {
   StreamingFormDecoder::{
     parser: StreamingParser::with_limits(boundary, stream_limits),
@@ -263,10 +266,10 @@ pub fn StreamingFormDecoder::new(
 pub fn StreamingFormDecoder::from_content_type(
   content_type : String,
   sink : (FileSinkEvent) -> Result[Unit, MultipartError],
-  stream_limits? : StreamLimits = StreamLimits::default(),
-  form_limits? : FormDataLimits = FormDataLimits::default(),
-  allowed_fields? : Array[String] = [],
-  field_size_limits? : Array[FieldSizeLimit] = [],
+  stream_limits~ : StreamLimits = StreamLimits::default(),
+  form_limits~ : FormDataLimits = FormDataLimits::default(),
+  allowed_fields~ : Array[String] = [],
+  field_size_limits~ : Array[FieldSizeLimit] = [],
 ) -> Result[StreamingFormDecoder, MultipartError] {
   match boundary_from_content_type(content_type) {
     Ok(boundary) =>
